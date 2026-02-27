@@ -18,20 +18,10 @@ with open(log_file_path, "w") as log_file:
         stderr=log_file
     )
 
-def is_raspberry_pi5():
-    with open('/proc/cpuinfo', 'r') as file:
-        for line in file:
-            if 'Model' in line:
-                if 'Raspberry Pi 5' in line:
-                    return True
-                else:
-                    return False
-
-if is_raspberry_pi5():
-   ffmpeg_command = [
+ffmpeg_command = [
     'ffmpeg',
     '-y',
-   '-loglevel', 'quiet',    
+    '-loglevel', 'quiet',    
     '-f', 'rawvideo',         
     '-vcodec', 'rawvideo',
     '-pix_fmt', 'bgr24',       
@@ -47,30 +37,16 @@ if is_raspberry_pi5():
     '-f', 'rtsp',              
     'rtsp://localhost:8554/cam'
 ]
-else:
-   ffmpeg_command = [
-    'ffmpeg',
-    '-y',
-    '-loglevel', 'quiet',    
-    '-f', 'rawvideo',         
-    '-vcodec', 'rawvideo',
-    '-pix_fmt', 'bgr24',       
-    '-s', '640x480',           
-    '-r', '30',                
-    '-i', '-',
-    '-vf', 'format=yuv420p',                  
-    '-c:v', 'h264_v4l2m2m',         
-    '-b:v', '800k',
-    '-pix_fmt', 'yuv420p',
-    '-fflags', 'nobuffer',    
-    '-f', 'rtsp',              
-    'rtsp://localhost:8554/cam'
-]
 
 class OpencvFuncs():
     """docstring for OpencvFuncs"""
     def __init__(self):
         self.ffmpeg_process = subprocess.Popen(ffmpeg_command, stdin=subprocess.PIPE)
+        self.gst_str = (
+          'nvarguscamerasrc sensor-id=%d ! video/x-raw(memory:NVMM), width=%d, height=%d, format=(string)NV12, '
+          'framerate=(fraction)%d/1 ! nvvidconv ! video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! '
+          'videoconvert ! appsink' % (0, 640, 480, 30, 640, 480)
+        )
         # camera type detection
         self.usb_camera_connected = self.usb_camera_detection()
         self.csi_camera_connected = False
@@ -84,19 +60,15 @@ class OpencvFuncs():
 
         # csi camera init
         if not self.usb_camera_connected:
-            print("init csi camera.")
             try:
-                # libraries for csi camera
-                from picamera2 import Picamera2
-                from picamera2.encoders import H264Encoder, Encoder
-                from picamera2.outputs import FfmpegOutput
-
-                self.encoder = H264Encoder(1000000)
-                self.picam2 = Picamera2()
-                self.picam2.configure(self.picam2.create_video_configuration(main={"format": 'XRGB8888', "size": (f['video']['default_res_w'], f['video']['default_res_h'])}))
-                self.picam2.start()
+                print("Initializing CSI camera...")
+                
+                self.csi_camera = cv2.VideoCapture(self.gst_str, cv2.CAP_GSTREAMER)
                 self.csi_camera_connected = True
-            except:
+                print("CSI camera initialized")
+                return
+            except Exception as e:
+                print(f"CSI init failed: {e}")
                 self.csi_camera_connected = False
 
         #oak camera init 
@@ -135,7 +107,11 @@ class OpencvFuncs():
                         time.sleep(1)
                         self.camera = cv2.VideoCapture(0)
                 elif self.csi_camera_connected:
-                    input_frame = self.picam2.capture_array()
+                    success, input_frame = self.csi_camera.read()
+                    if not success or input_frame is None:
+                        self.csi_camera.release()
+                        time.sleep(1)
+                        self.csi_camera = cv2.VideoCapture(self.gst_str, cv2.CAP_GSTREAMER)
                 elif self.oak_camera_connected:
                     input_frame = self.output_queue.get().getCvFrame()
                     input_frame = cv2.resize(input_frame, (640, 480))
@@ -157,7 +133,7 @@ class OpencvFuncs():
             except:
                 pass
 
-            time.sleep(1/30)
+            # time.sleep(1/30)
 
     def usb_camera_detection(self):
         lsusb_output = subprocess.check_output(["lsusb"]).decode("utf-8")

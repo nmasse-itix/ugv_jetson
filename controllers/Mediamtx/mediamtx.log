@@ -1,33 +1,29 @@
-2026/02/27 16:17:09 INF MediaMTX v1.13.1
-2026/02/27 16:17:09 INF configuration loaded from /home/jetson/ugv_jetson/controllers/Mediamtx/mediamtx.yml
-2026/02/27 16:17:09 INF [RTSP] listener opened on :8554 (TCP), :8000 (UDP/RTP), :8001 (UDP/RTCP)
-2026/02/27 16:17:09 INF [RTMP] listener opened on :1935
-2026/02/27 16:17:09 INF [HLS] listener opened on :8880
-2026/02/27 16:17:09 INF [WebRTC] listener opened on :8889 (HTTP), :8189 (ICE/UDP)
-2026/02/27 16:17:09 INF [SRT] listener opened on :8890 (UDP)
-2026/02/27 16:17:10 INF [WebRTC] [session f3331439] created by 192.168.10.17:65164
-2026/02/27 16:17:10 INF [WebRTC] [session f3331439] closed: no stream is available on path 'cam'
-2026/02/27 16:17:12 INF [WebRTC] [session ac1b0f1d] created by 192.168.10.17:65164
-2026/02/27 16:17:12 INF [WebRTC] [session ac1b0f1d] closed: no stream is available on path 'cam'
-2026/02/27 16:17:14 INF [WebRTC] [session acbee623] created by 192.168.10.17:65164
-2026/02/27 16:17:14 INF [WebRTC] [session acbee623] closed: no stream is available on path 'cam'
-2026/02/27 16:17:14 INF [RTSP] [conn 127.0.0.1:44850] opened
-2026/02/27 16:17:14 INF [RTSP] [session f7c975e1] created by 127.0.0.1:44850
-2026/02/27 16:17:14 INF [RTSP] [session f7c975e1] is publishing to path 'cam', 1 track (H264)
-2026/02/27 16:17:16 INF [WebRTC] [session eabdec40] created by 192.168.10.17:65164
-2026/02/27 16:17:16 INF [WebRTC] [session eabdec40] peer connection established, local candidate: host/udp/127.0.0.1/8189, remote candidate: prflx/udp/192.168.10.17/56292
-2026/02/27 16:17:16 INF [WebRTC] [session eabdec40] is reading from path 'cam', 1 track (H264)
-2026/02/27 16:17:20 INF [WebRTC] [session eabdec40] closed: peer connection closed
-2026/02/27 16:17:22 INF [WebRTC] [session b5317c26] created by 192.168.10.17:65164
-2026/02/27 16:17:22 INF [WebRTC] [session b5317c26] peer connection established, local candidate: host/udp/192.168.9.236/8189, remote candidate: prflx/udp/192.168.10.17/60817
-2026/02/27 16:17:22 INF [WebRTC] [session b5317c26] is reading from path 'cam', 1 track (H264)
-2026/02/27 16:22:18 INF shutting down gracefully
-2026/02/27 16:22:18 INF [SRT] listener is closing
-2026/02/27 16:22:18 INF [WebRTC] listener is closing
-2026/02/27 16:22:18 INF [WebRTC] [session b5317c26] closed: terminated
-2026/02/27 16:22:18 INF [HLS] listener is closing
-2026/02/27 16:22:18 INF [RTMP] listener is closing
-2026/02/27 16:22:18 INF [RTSP] listener is closing
-2026/02/27 16:22:18 INF [RTSP] [conn 127.0.0.1:44850] closed: terminated
-2026/02/27 16:22:18 INF [RTSP] [session f7c975e1] destroyed: terminated
-2026/02/27 16:22:18 INF waiting for running hooks
+2026/02/27 18:07:09 INF MediaMTX v1.13.1
+2026/02/27 18:07:09 INF configuration loaded from /home/jetson/ugv_jetson/controllers/Mediamtx/mediamtx.yml
+2026/02/27 18:07:09 INF [RTSP] listener opened on :8554 (TCP), :8000 (UDP/RTP), :8001 (UDP/RTCP)
+2026/02/27 18:07:09 INF [RTMP] listener opened on :1935
+2026/02/27 18:07:09 INF [HLS] listener opened on :8880
+2026/02/27 18:07:09 INF [WebRTC] listener opened on :8889 (HTTP), :8189 (ICE/UDP)
+2026/02/27 18:07:09 INF [SRT] listener opened on :8890 (UDP)
+2026/02/27 18:07:10 INF [WebRTC] [session 5eab81e7] created by 192.168.10.17:53936
+2026/02/27 18:07:10 INF [WebRTC] [session 5eab81e7] closed: no stream is available on path 'cam'
+2026/02/27 18:07:13 INF [RTSP] [conn 127.0.0.1:53768] opened
+2026/02/27 18:07:13 INF [RTSP] [session 59740ddb] created by 127.0.0.1:53768
+2026/02/27 18:07:13 INF [RTSP] [session 59740ddb] is publishing to path 'cam', 1 track (H264)
+2026/02/27 18:07:13 INF [WebRTC] [session ab0a1d27] created by 192.168.10.17:53936
+2026/02/27 18:07:13 INF [WebRTC] [session ab0a1d27] peer connection established, local candidate: host/udp/127.0.0.1/8189, remote candidate: prflx/udp/192.168.10.17/59842
+2026/02/27 18:07:13 INF [WebRTC] [session ab0a1d27] is reading from path 'cam', 1 track (H264)
+2026/02/27 18:07:21 INF [WebRTC] [session ab0a1d27] closed: peer connection closed
+2026/02/27 18:07:21 INF [WebRTC] [session f7e4c5fc] created by 192.168.10.17:53936
+2026/02/27 18:07:22 INF [WebRTC] [session f7e4c5fc] peer connection established, local candidate: host/udp/127.0.0.1/8189, remote candidate: prflx/udp/192.168.10.17/54385
+2026/02/27 18:07:22 INF [WebRTC] [session f7e4c5fc] is reading from path 'cam', 1 track (H264)
+2026/02/27 18:09:26 INF shutting down gracefully
+2026/02/27 18:09:26 INF [SRT] listener is closing
+2026/02/27 18:09:26 INF [WebRTC] listener is closing
+2026/02/27 18:09:26 INF [WebRTC] [session f7e4c5fc] closed: terminated
+2026/02/27 18:09:26 INF [HLS] listener is closing
+2026/02/27 18:09:26 INF [RTMP] listener is closing
+2026/02/27 18:09:26 INF [RTSP] listener is closing
+2026/02/27 18:09:26 INF [RTSP] [conn 127.0.0.1:53768] closed: terminated
+2026/02/27 18:09:26 INF [RTSP] [session 59740ddb] destroyed: terminated
+2026/02/27 18:09:26 INF waiting for running hooks
