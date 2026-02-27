@@ -1,0 +1,27 @@
+2025/11/24 17:44:52 INF MediaMTX v1.13.1
+2025/11/24 17:44:52 INF configuration loaded from /home/ws/ugv_rpi/tutorials/tutorial_cn/12/Mediamtx/mediamtx.yml
+2025/11/24 17:44:52 INF [RTSP] listener opened on :8554 (TCP), :8000 (UDP/RTP), :8001 (UDP/RTCP)
+2025/11/24 17:44:52 INF [RTMP] listener opened on :1935
+2025/11/24 17:44:52 INF [HLS] listener opened on :8880
+2025/11/24 17:44:53 INF [WebRTC] listener opened on :8889 (HTTP), :8189 (ICE/UDP)
+2025/11/24 17:44:53 INF [SRT] listener opened on :8890 (UDP)
+2025/11/24 17:44:53 INF [RTSP] [conn [::1]:37802] opened
+2025/11/24 17:44:53 INF [RTSP] [session 7a259e73] created by [::1]:37802
+2025/11/24 17:44:53 INF [RTSP] [session 7a259e73] is publishing to path 'cam', 1 track (H264)
+2025/11/24 17:44:53 INF [WebRTC] [session 467adc3a] created by 192.168.9.125:60684
+2025/11/24 17:44:53 INF [WebRTC] [session 467adc3a] peer connection established, local candidate: host/udp/127.0.0.1/8189, remote candidate: prflx/udp/192.168.9.125/55113
+2025/11/24 17:44:53 INF [WebRTC] [session 467adc3a] is reading from path 'cam', 1 track (H264)
+2025/11/24 17:45:25 INF [WebRTC] [session 9a0a94fd] created by 192.168.9.125:60684
+2025/11/24 17:45:26 INF [WebRTC] [session 9a0a94fd] peer connection established, local candidate: host/udp/127.0.0.1/8189, remote candidate: prflx/udp/192.168.9.125/63101
+2025/11/24 17:45:26 INF [WebRTC] [session 9a0a94fd] is reading from path 'cam', 1 track (H264)
+2025/11/24 17:45:38 INF shutting down gracefully
+2025/11/24 17:45:38 INF [SRT] listener is closing
+2025/11/24 17:45:38 INF [WebRTC] listener is closing
+2025/11/24 17:45:38 INF [WebRTC] [session 467adc3a] closed: terminated
+2025/11/24 17:45:38 INF [WebRTC] [session 9a0a94fd] closed: terminated
+2025/11/24 17:45:38 INF [HLS] listener is closing
+2025/11/24 17:45:38 INF [RTMP] listener is closing
+2025/11/24 17:45:38 INF [RTSP] listener is closing
+2025/11/24 17:45:38 INF [RTSP] [conn [::1]:37802] closed: terminated
+2025/11/24 17:45:38 INF [RTSP] [session 7a259e73] destroyed: terminated
+2025/11/24 17:45:38 INF waiting for running hooks
