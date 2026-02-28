@@ -624,6 +624,12 @@ class OpencvFuncs():
 
         self.overlay = overlay_buffer
 
+    def set_track_base(self, track_base):
+        if track_base in ['ugv', 'pt']:
+            self.track_base = track_base
+        else:
+            self.track_base = 'ugv'
+            
     def cv_detect_faces(self, img):
         overlay_buffer = np.zeros_like(img)
         height, width = img.shape[:2]
