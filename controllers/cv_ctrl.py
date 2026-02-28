@@ -428,7 +428,7 @@ class OpencvFuncs():
                     if contains_chinese(text):
                         input_frame = draw_chinese_text(input_frame, text, 
                                     (base_x, base_y - 10), 
-                                    int(35*size), color)
+                                    int(35*size*self.cv_h_scale), color)
                     else:
                         cv2.putText(input_frame, text, 
                                 (base_x, base_y), 
