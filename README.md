@@ -3,7 +3,7 @@
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/waveshareteam/ugv_jetson)
 ![GitHub repo size](https://img.shields.io/github/repo-size/waveshareteam/ugv_jetson) 
 ![GitHub](https://img.shields.io/github/license/waveshareteam/ugv_jetson) 
-![GitHub last commit (branch)](https://img.shields.io/github/last-commit/waveshareteam/ugv_jetson/JP6.2.1-R36.4.7-U22.04-py3.10)
+![GitHub last commit (branch)](https://img.shields.io/github/last-commit/waveshareteam/ugv_jetson%2Frefactor%2FJP6.2.1-R36.4.7-U22.04-py3.10)
 
 # Waveshare UGV Robots
 This is a Jetson Orin Nano & Jetson Orin NX example for the [Waveshare](https://www.waveshare.com/) UGV robots: **WAVE ROVER**, **UGV Rover**, **UGV Beast**, **RaspRover**, **UGV01**, **UGV02**.  
