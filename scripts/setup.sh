@@ -58,7 +58,6 @@ sudo -H pip install -U jetson-stats
 
 sudo apt install -y python3-venv python3-pip build-essential python3-dev
 
-
 echo "# Create a Python virtual environment."
 # Create a Python virtual environment 
 cd $PWD
@@ -69,9 +68,9 @@ echo "# Activate a Python virtual environment."
 echo "# Install dependencies from requirements.txt"
 # Install dependencies from requirements.txt
 if $use_index; then
-  sudo -H -u $USER bash -c 'source /home/$(logname)/ugv_jetson/ugv-env/bin/activate && pip install --upgrade setuptools pip && pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r /home/$(logname)/ugv_jetson/requirements.txt && deactivate'
+  sudo -H -u $USER bash -c 'source /home/$(logname)/ugv_jetson/ugv-env/bin/activate && pip install --upgrade setuptools pip && pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r /home/$(logname)/ugv_jetson/requirements.txt && pip install sherpa_onnx-1.12.27-cp310-cp310-linux_aarch64.whl && deactivate'
 else
-  sudo -H -u $USER bash -c 'source /home/$(logname)/ugv_jetson/ugv-env/bin/activate && pip install --upgrade setuptools pip && pip install -r /home/$(logname)/ugv_jetson/requirements.txt && deactivate'
+  sudo -H -u $USER bash -c 'source /home/$(logname)/ugv_jetson/ugv-env/bin/activate && pip install --upgrade setuptools pip && pip install -r /home/$(logname)/ugv_jetson/requirements.txt && pip install sherpa_onnx-1.12.27-cp310-cp310-linux_aarch64.whl && deactivate'
 fi
 
 echo "# Add current user to group so it can use serial."

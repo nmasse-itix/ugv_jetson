@@ -213,7 +213,7 @@ class OpencvFuncs():
         self.tilt_angle = 0
 
         # cv_dnn_objects
-        self.net = YOLO(thisPath + '/models/yolov8n.engine')
+        self.net = YOLO(thisPath + '/models/yolov8n.engine',task='detect')
         self.class_names = ['person','bicycle','car','motorcycle','airplane','bus','train','truck','boat','traffic light',
                             'fire hydrant','stop sign','parking meter','bench','bird','cat','dog','horse','sheep','cow',
                             'elephant','bear','zebra','giraffe','backpack','umbrella','handbag','tie','suitcase','frisbee',
@@ -698,7 +698,7 @@ class OpencvFuncs():
         height, width = img.shape[:2]
         img = cv2.resize(img, (self.base_width, self.base_height))
 
-        results = self.net(img, verbose=False)
+        results = self.net(img,verbose=False)
         r = results[0]
 
         if r.boxes is None:

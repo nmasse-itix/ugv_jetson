@@ -25,13 +25,11 @@ Wants=pipewire.service
 ExecStart=/bin/bash -c 'USER_HOME=$(getent passwd %u | cut -d: -f6); \
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu/tegra; \
 export PATH=$USER_HOME/ugv_jetson/ugv-env/bin:/usr/local/cuda/bin:$PATH; \
-export PYTHONPATH=$USER_HOME/sherpa-onnx/sherpa-onnx/python:$USER_HOME/sherpa-onnx/build/lib:$PYTHONPATH; \
 exec $USER_HOME/ugv_jetson/ugv-env/bin/python -u $USER_HOME/ugv_jetson/app.py >> $USER_HOME/ugv_jetson/ugv-app.log 2>&1'
 Restart=always
 Environment=XDG_RUNTIME_DIR=/run/user/%U
 Environment="LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu/tegra"
 Environment="PATH=/home/jetson/ugv_jetson/ugv-env/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-Environment="PYTHONPATH=/home/jetson/sherpa-onnx/sherpa-onnx/python:/home/jetson/sherpa-onnx/build/lib"
 WorkingDirectory=$USER_HOME/ugv_jetson
 
 [Install]
