@@ -71,7 +71,7 @@ class BaseController:
         self.command_thread = threading.Thread(target=self.process_commands, daemon=True)
         self.command_thread.start()
         self.data_buffer = None
-        self.read_fail_count = 0 
+        self.read_fail_count = 0
         self.read_fail_threshold = 5
 
         self.base_data = {"T": 1001, "L": 0, "R": 0, "ax": 0, "ay": 0, "az": 0, "gx": 0, "gy": 0, "gz": 0, "mx": 0, "my": 0, "mz": 0, "odl": 0, "odr": 0, "v": 0}
@@ -89,7 +89,7 @@ class BaseController:
             line = line.decode('utf-8')
             self.data_buffer = json.loads(line)
             self.base_data = self.data_buffer
-            self.read_fail_count = 0  # 成功后清零
+            self.read_fail_count = 0
             return self.base_data
 
         except json.JSONDecodeError as e:
