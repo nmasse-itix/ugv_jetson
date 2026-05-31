@@ -13,3 +13,4 @@ jupyterlab
 jupyterlab-widgets
 jupyterlab-pygments
 jupyter
+numpy==1.26.4
