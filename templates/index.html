@@ -307,6 +307,20 @@
         </div>
     </main>
     <div id="video-del-tips" class="video-del-tips"><p>Successfully deleted video</p></div>
+    <div id="dbg-panel" style="position:fixed;bottom:8px;right:8px;background:rgba(0,0,0,0.82);color:#0f0;font:12px monospace;padding:8px 10px;border-radius:6px;z-index:9999;min-width:280px;max-width:360px;line-height:1.6;">
+        <b style="color:#ff0">DEBUG</b> <button onclick="document.getElementById('dbg-panel').style.display='none'" style="float:right;background:#333;color:#fff;border:none;cursor:pointer;padding:1px 5px;">✕</button>
+        <br>socket /json: <span id="dbg-sock">?</span>
+        <br>module_type: <span id="dbg-mod">?</span> | cmd_gimbal: <span id="dbg-cmd">?</span>
+        <br>─── Gamepad ───────────────────
+        <br>status: <span id="dbg-gp-status" style="color:#f80">not detected</span>
+        <br>name: <span id="dbg-gp-name">—</span>
+        <br>axes[0..3]: <span id="dbg-gp-axes">—</span>
+        <br>btns (0-3,5,7-9): <span id="dbg-gp-btns">—</span>
+        <br>─── Last commands ─────────────
+        <br>joystick calls: <span id="dbg-joy">0</span>x
+        <br>last gimbal cmd: <span id="dbg-last">—</span>
+        <br>server ack: <span id="dbg-ack">—</span>
+    </div>
     <footer style="visibility: hidden;">
         <div style="background-image: url('./img/white/record.svg');"></div>
         <div style="background-image: url('./img/white/capture.svg');"></div>

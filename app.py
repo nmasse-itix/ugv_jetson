@@ -480,6 +480,8 @@ def audio_stop():
 @socketio.on('json', namespace='/json')
 def handle_socket_json(json):
     try:
+        if json.get('T') == f['cmd_config']['cmd_gimbal_ctrl']:
+            emit('dbg_ack', {'ok': True, 'recv': json}, namespace='/json')
         base.base_json_ctrl(json)
     except Exception as e:
         print("Error handling JSON data:", e)

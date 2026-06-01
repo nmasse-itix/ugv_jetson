@@ -477,7 +477,15 @@ document.addEventListener('mousewheel', (e) => {
         cmdJsonCmd({"T":cmd_arm_ctrl_ui,"E":armE,"Z":armZ,"R":armR});
     }
 }, { passive: false });
+var _dbgJoyCount = 0;
 function joyStickCtrl(inputX, inputY) {
+    _dbgJoyCount++;
+    var elCount = document.getElementById('dbg-joy');
+    if (elCount) elCount.textContent = _dbgJoyCount;
+    var elMod = document.getElementById('dbg-mod');
+    if (elMod) elMod.textContent = module_type;
+    var elCmd = document.getElementById('dbg-cmd');
+    if (elCmd) elCmd.textContent = cmd_gimbal_ctrl;
     if (module_type == 1) {
         var x_cmd = Math.max(-180, Math.min(inputX/7, 180));
         console.log(inputY);
@@ -499,7 +507,10 @@ function joyStickCtrl(inputX, inputY) {
         var y_cmd = Math.max(-30, Math.min(-inputY/2.5, 90));
 
         if (steady_mode == false) {
-            cmdJsonCmd({"T":cmd_gimbal_ctrl,"X":inputX/2.5,"Y":-inputY/2.5,"SPD":0,"ACC":128});
+            var gimbalCmd = {"T":cmd_gimbal_ctrl,"X":inputX/2.5,"Y":-inputY/2.5,"SPD":0,"ACC":128};
+            var elLast = document.getElementById('dbg-last');
+            if (elLast) elLast.textContent = JSON.stringify(gimbalCmd);
+            cmdJsonCmd(gimbalCmd);
         } else {
             steadyCtrl(1, inputY);
         }
@@ -586,6 +597,20 @@ function removeAllIcoClass(ElName){
 
 var socketJson = io('http://' + location.host + '/json');
 socketJson.emit('json', {'T':1,'L':0,'R':0})
+socketJson.on('connect', function() {
+    var el = document.getElementById('dbg-sock');
+    if (el) el.textContent = 'CONNECTED';
+    if (el) el.style.color = '#0f0';
+});
+socketJson.on('disconnect', function() {
+    var el = document.getElementById('dbg-sock');
+    if (el) el.textContent = 'DISCONNECTED';
+    if (el) el.style.color = '#f00';
+});
+socketJson.on('dbg_ack', function(data) {
+    var el = document.getElementById('dbg-ack');
+    if (el) el.textContent = JSON.stringify(data);
+});
 
 var socket = io('http://' + location.host + '/ctrl');
 socket.emit('request_data');
@@ -1091,13 +1116,19 @@ var last_gp_pt_y = 0;
 var gp_pt_speed = 1.0;
 
 window.addEventListener("gamepadconnected", function(e) {
-  console.log("gamepad connected:" + e.gamepad.index);
   heartbeat_send_flag = false;
+  var el = document.getElementById('dbg-gp-status');
+  if (el) { el.textContent = 'CONNECTED (index ' + e.gamepad.index + ')'; el.style.color = '#0f0'; }
+  var en = document.getElementById('dbg-gp-name');
+  if (en) en.textContent = e.gamepad.id;
 });
 
 window.addEventListener("gamepaddisconnected", function(e) {
-  console.log("gamepad disconnected:" + e.gamepad.index);
   heartbeat_send_flag = true;
+  var el = document.getElementById('dbg-gp-status');
+  if (el) { el.textContent = 'DISCONNECTED'; el.style.color = '#f00'; }
+  var en = document.getElementById('dbg-gp-name');
+  if (en) en.textContent = '—';
 });
 
 function logButtons(gamepad) {
@@ -1115,17 +1146,42 @@ function logAxes(gamepad) {
 
 function readGamepad() {
   var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  var anyGp = false;
   for (var i = 0; i < gamepads.length; i++) {
     var gp = gamepads[i];
     if(gp) {
+      anyGp = true;
+      // Update debug panel with live axes and button states
+      var elAxes = document.getElementById('dbg-gp-axes');
+      if (elAxes) {
+        var axStr = [];
+        for (var a = 0; a < Math.min(gp.axes.length, 6); a++) {
+          axStr.push('[' + a + ']' + gp.axes[a].toFixed(2));
+        }
+        elAxes.textContent = axStr.join(' ');
+      }
+      var elBtns = document.getElementById('dbg-gp-btns');
+      if (elBtns) {
+        var bStr = [0,1,2,3,5,7,8,9].map(function(b) {
+          return b + ':' + (gp.buttons[b] && gp.buttons[b].pressed ? '■' : '□');
+        });
+        elBtns.textContent = bStr.join(' ');
+      }
+      var elSt = document.getElementById('dbg-gp-status');
+      if (elSt && elSt.textContent === 'not detected') {
+        elSt.textContent = 'ACTIVE (index ' + gp.index + ')';
+        elSt.style.color = '#0f0';
+        var en = document.getElementById('dbg-gp-name');
+        if (en) en.textContent = gp.id;
+      }
       // logButtons(gp);
       // logAxes(gp);
       gp_x = - gp.axes[1] * max_speed;
       gp_z = - gp.axes[0] * gp_turnning;
-      if(Math.abs(gp_x) < 0.02){
+      if(Math.abs(gp_x) < 0.05){
         gp_x = 0;
       }
-      if(Math.abs(gp_z) < 0.02){
+      if(Math.abs(gp_z) < 0.05){
         gp_z = 0;
       }
       // console.log(`X: ${gp_x} Z: ${gp_z}`);
@@ -1233,11 +1289,11 @@ function readGamepad() {
           }
 
           var change_x = gp.axes[2];
-          if(Math.abs(change_x) < 0.01){
+          if(Math.abs(change_x) < 0.05){
             change_x = 0;
           }
           var change_y = gp.axes[3];
-          if(Math.abs(change_y) < 0.01){
+          if(Math.abs(change_y) < 0.05){
             change_y = 0;
           }
           gp_pt_x = gp_pt_x + change_x * gp_pt_speed;
