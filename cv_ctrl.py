@@ -861,7 +861,7 @@ class OpencvFuncs():
         try:
             if self.show_base_info_flag:
                 self.recv_deque.appendleft(json.dumps(self.format_json_numbers(input_data)))
-            if input_data['T'] == 1003:
+            if input_data.get('T') == 1003:
                 self.info_deque.appendleft({'text':json.dumps(input_data['mac']),'color':(16,64,255),'size':0.5})
                 wrapped_lines = textwrap.wrap(json.dumps(input_data['megs']), self.recv_line_max)
                 for line in wrapped_lines:
