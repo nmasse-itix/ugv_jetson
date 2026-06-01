@@ -160,7 +160,7 @@ declare -a podman_args=(
   --device nvidia.com/gpu=all
   # Disable cgroups because Podman fails at inserting the device filter eBPF program
   --cgroups=disabled
-  # Copy the group membership of the current user to the container so it can access the GPU and serial ports
+  # Copy the group membership of the current user to the container so it can access the GPU, camera and serial ports
   --group-add $(getent group video | cut -d: -f3)
   --group-add $(getent group render | cut -d: -f3)
   --group-add $(getent group dialout | cut -d: -f3)
@@ -169,6 +169,8 @@ declare -a podman_args=(
   --security-opt label=disable
   # Mount the project source code to the container so we can easily edit files from the host and run scripts from the container
   -v $HOME/ugv_jetson:$HOME/ugv_jetson
+  # Pass through all V4L2 camera devices
+  $(for d in /dev/video*; do [[ -c "$d" ]] && echo "--device $d"; done)
   # Allow the container to access the host's audio server
   -v /run/user/1000/pulse/native:/tmp/pulse-socket
   -e PULSE_SERVER=unix:/tmp/pulse-socket
@@ -181,6 +183,8 @@ declare -a podman_args=(
   --entrypoint /bin/sleep
   # Run the container as the current user so files created by the container are owned by the current user
   --user $(id -u):$(id -g)
+  # Set the working directory to the project source code
+  --workdir $HOME/ugv_jetson
 )
 sudo podman run "${podman_args[@]}" $IMAGE INF
 sudo podman exec -it nvidia-jetpack /bin/bash
@@ -189,7 +193,6 @@ sudo podman exec -it nvidia-jetpack /bin/bash
 ## Utiliser la démo
 
 ```sh
-cd ~/ugv_jetson/
 ./start_jupyter.sh &
 ~/ugv_jetson/ugv-env/bin/python ~/ugv_jetson/app.py
 ```
