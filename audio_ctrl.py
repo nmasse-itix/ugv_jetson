@@ -9,8 +9,9 @@ import pyttsx3
 import subprocess
 
 def set_default_sink(device_name):
-    command = ["pactl", "set-default-sink", device_name]
-    subprocess.run(command)
+    result = subprocess.run(["pactl", "list", "sinks", "short"], capture_output=True, text=True)
+    if device_name in result.stdout:
+        subprocess.run(["pactl", "set-default-sink", device_name])
 
 device_name = "alsa_output.usb-Solid_State_System_Co._Ltd._USB_PnP_Audio_Device_000000000000-00.analog-stereo"
 set_default_sink(device_name)
