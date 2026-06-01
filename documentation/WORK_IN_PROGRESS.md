@@ -15,7 +15,7 @@ sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.
 sudo crb enable
 
 # Install misc. tools
-sudo dnf install -y bluez pciutils usbutils tcpdump htop stress-ng yq podman-compose tmux iptraf-ng mkpasswd cockpit cockpit-podman cockpit-podman cockpit-files cockpit-ostree cockpit-pcp cockpit-system strace NetworkManager-wifi chromium git python3-pip tio
+sudo dnf install -y bluez pciutils usbutils tcpdump htop stress-ng yq podman-compose tmux iptraf-ng mkpasswd cockpit cockpit-podman cockpit-podman cockpit-files cockpit-ostree cockpit-pcp cockpit-system strace NetworkManager-wifi chromium git python3-pip tio pulseaudio-utils
 
 # Enable services
 sudo systemctl enable cockpit.socket sshd.service bluetooth.service
@@ -76,29 +76,120 @@ sudo nmcli device wifi connect ITIX-LAN --ask
 # Allow the user to use serial ports
 sudo usermod -aG dialout $USER
 
+# Switch to PulseAudio
+#sudo dnf remove -y pipewire pipewire-pulseaudio
+#systemctl --user mask pipewire-pulse.socket pipewire-pulse.service
+#sudo dnf install pulseaudio pulseaudio-utils
+#systemctl --user enable --now pulseaudio.socket pulseaudio.service
+
 # Fetch the demo source code
 git clone https://github.com/waveshareteam/ugv_jetson.git
 cd ugv_jetson
 git remote remove origin
 git remote add origin git@github.com:nmasse-itix/ugv_jetson.git
-sudo podman run --name nvidia-jetpack -d -e DISPLAY=:0 --net=host --device nvidia.com/gpu=all --cgroups=disabled --group-add keep-groups -v /tmp/.X11-unix/:/tmp/.X11-unix --security-opt label=disable -v ${HOME}:${HOME} --entrypoint /bin/sleep -v /run/user/1000/pulse/native:/tmp/pulse-socket -e PULSE_SERVER=unix:/tmp/pulse-socket -v /home/admin/.config/pulse/cookie:/tmp/pulse-cookie:ro -e PULSE_COOKIE=/tmp/pulse-cookie nvcr.io/nvidia/l4t-jetpack:r36.3.0 INF
-sudo podman exec -it nvidia-jetpack /bin/bash
+```
+
+Préparer le conteneur Nvidia Jetpack:
+
+```sh
+declare -a podman_args=(
+  --name nvidia-jetpack
+  # Use the host's network stack
+  --net=host
+  # Fix sudo warning message about audit subsystem not being available
+  --cap-add=AUDIT_WRITE
+  # Mount the project source code to run setup.sh
+  -v $HOME/ugv_jetson:$HOME/ugv_jetson
+  # Run bash
+  --entrypoint /bin/bash
+)
+IMAGE=nvcr.io/nvidia/l4t-jetpack:r36.3.0
+sudo podman run "${podman_args[@]}" $IMAGE
 ```
 
 ## Paramétrage du conteneur Jetpack
+
+Dans le conteneur:
 
 ```sh
 groupadd -g 1000 admin
 useradd -M -d /home/admin -g 1000 -u 1000 admin
 usermod -aG sudo admin
 chsh admin -s /bin/bash
-apt install vim sudo python3 apt-file pulseaudio-utils
-visudo
-sudo -u admin -i
+apt update
+apt install vim sudo python3 apt-file pulseaudio-utils strace espeak-ng espeak-ng-data
+# Fix HMAC mismatch: RHEL Python 3.9 uses SHA-256 for multiprocessing auth, Ubuntu Python 3.10 defaults to MD5
+sed -i "s/hmac.new(authkey, message, 'md5')/hmac.new(authkey, message, 'sha256')/g" \
+  /usr/lib/python3.10/multiprocessing/connection.py
+sudo tee /etc/sudoers.d/admin >/dev/null <<'EOF'
+admin ALL=(ALL) NOPASSWD:ALL
+EOF
+sudo -u admin -EH /bin/bash
+echo "PS1='\u@jetpack-container:\w\\\$ '" >> ~/.bashrc
 cd ~/ugv_jetson/
 chmod 755 *.sh
 sudo ./setup.sh
-./start_jupyter.sh
-~/ugv_jetson/ugv-env/bin/python ~/ugv_jetson/app.py
+sudo pip3 install jetson-stats
+mkdir -p ~/.config/pulse
 ```
 
+Prendre un instantané du conteneur:
+
+```sh
+sudo podman commit nvidia-jetpack nvidia-jetpack:$(date -Idate)
+IMAGE=nvidia-jetpack:$(date -Idate)
+sudo podman stop nvidia-jetpack
+sudo podman rm nvidia-jetpack
+```
+
+## Utiliser le conteneur Jetpack
+
+```sh
+declare -a podman_args=(
+  --name nvidia-jetpack
+  # Run the container in privileged mode to allow access to the GPU and serial ports
+  --privileged
+  # Run the container in detached mode
+  -d
+  # Allow the container to access the host's display server
+  -e DISPLAY=:0
+  -v /tmp/.X11-unix/:/tmp/.X11-unix
+  # Use the host's network stack
+  --net=host
+  # Allow the container to access the GPU
+  --device nvidia.com/gpu=all
+  # Disable cgroups because Podman fails at inserting the device filter eBPF program
+  --cgroups=disabled
+  # Copy the group membership of the current user to the container so it can access the GPU and serial ports
+  --group-add $(getent group video | cut -d: -f3)
+  --group-add $(getent group render | cut -d: -f3)
+  --group-add $(getent group dialout | cut -d: -f3)
+  --group-add $(getent group jtop | cut -d: -f3)
+  # Disable security labels because they prevent the container from accessing the GPU
+  --security-opt label=disable
+  # Mount the project source code to the container so we can easily edit files from the host and run scripts from the container
+  -v $HOME/ugv_jetson:$HOME/ugv_jetson
+  # Allow the container to access the host's audio server
+  -v /run/user/1000/pulse/native:/tmp/pulse-socket
+  -e PULSE_SERVER=unix:/tmp/pulse-socket
+  -v /home/admin/.config/pulse/cookie:/tmp/pulse-cookie:ro
+  -e PULSE_COOKIE=/tmp/pulse-cookie
+  # Allow the container to access jtop.service (Jetson stats daemon) via its Unix socket
+  -v /run/jtop.sock:/run/jtop.sock
+  --group-add $(getent group jtop | cut -d: -f3)
+  # Set the entrypoint to sleep infinity so the container doesn't exit immediately and we can exec into it
+  --entrypoint /bin/sleep
+  # Run the container as the current user so files created by the container are owned by the current user
+  --user $(id -u):$(id -g)
+)
+sudo podman run "${podman_args[@]}" $IMAGE INF
+sudo podman exec -it nvidia-jetpack /bin/bash
+```
+
+## Utiliser la démo
+
+```sh
+cd ~/ugv_jetson/
+./start_jupyter.sh &
+~/ugv_jetson/ugv-env/bin/python ~/ugv_jetson/app.py
+```
