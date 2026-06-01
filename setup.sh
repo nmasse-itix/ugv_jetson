@@ -1,20 +1,11 @@
 #!/bin/bash
 
-# python -m venv --system-site-packages ugv-env
-# sudo usermod -aG dialout $USER
-# pip install pyserial flask flask_socketio aiortc
-# pip install opencv-python imutils mediapipe imageio
-# pip install pygame pyttsx3 jupyterlab jupyterlab-widgets jupyterlab-pygments jupyter
-
 if [ "$EUID" -ne 0 ]; then
     echo "This script must be run with sudo."
     echo "Use 'sudo ./setup.sh' instead of './setup.sh'"
     echo "Exiting..."
     exit 1
 fi
-
-# Default value for using other source
-use_index=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -32,44 +23,27 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "Updating package list..."
+echo "# Updating package list..."
 sudo apt update
 
 # Install required software
 echo "# Install required software."
-#sudo apt update
-#sudo apt upgrade -y
 sudo apt install -y libopenblas-dev libatlas3-base libcamera-dev python3-opencv portaudio19-dev
 sudo apt install -y util-linux procps hostapd iproute2 iw haveged dnsmasq iptables espeak
-# sudo apt install -y python3.10-venv
 
-# disable serial login
-#sudo systemctl stop nvgetty
-#sudo systemctl disable nvgetty
-#sudo udevadm trigger
+echo "# Install Python & dependencies."
+sudo apt install -y python3-venv python3-pip build-essential python3-dev
 
 # install jupyterlab
 sudo apt install -y nodejs npm
 sudo pip3 install jupyter jupyterlab
 
-sudo apt install -y python3-venv python3-pip build-essential python3-dev
-
 echo "# Create a Python virtual environment."
-# Create a Python virtual environment 
 sudo -H -u $USER python3 -m venv --system-site-packages ugv-env
 
 echo "# Activate a Python virtual environment."
-
 echo "# Install dependencies from requirements.txt"
-# Install dependencies from requirements.txt
-if $use_index; then
-  sudo -H -u $USER bash -c 'source $PWD/ugv-env/bin/activate && pip install --upgrade setuptools pip && pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt && deactivate'
-else
-  sudo -H -u $USER bash -c 'source $PWD/ugv-env/bin/activate && pip install --upgrade setuptools pip && pip install -r requirements.txt && deactivate'
-fi
-
-echo "# Add current user to group so it can use serial."
-sudo usermod -aG dialout $USER
+sudo -H -u $USER bash -c 'source $PWD/ugv-env/bin/activate && pip install --upgrade setuptools pip && pip install -r requirements.txt && deactivate'
 
 # Audio Config
 # echo "# Audio Config."
