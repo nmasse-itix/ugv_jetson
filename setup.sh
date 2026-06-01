@@ -51,11 +51,8 @@ sudo apt install -y util-linux procps hostapd iproute2 iw haveged dnsmasq iptabl
 # install jupyterlab
 sudo apt install -y nodejs npm
 sudo pip3 install jupyter jupyterlab
-sudo pip3 install -U jetson-stats
-sudo -H pip3 install -U jetson-stats
 
 sudo apt install -y python3-venv python3-pip build-essential python3-dev
-
 
 echo "# Create a Python virtual environment."
 # Create a Python virtual environment 

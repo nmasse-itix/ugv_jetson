@@ -16,9 +16,11 @@ device_name = "alsa_output.usb-Solid_State_System_Co._Ltd._USB_PnP_Audio_Device_
 set_default_sink(device_name)
 
 # JETSON ORIN NANO
-base = BaseController('/dev/ttyTHS0', 115200)
+# base = BaseController('/dev/ttyTHS0', 115200)
 # JETSON ORIN NX
 # base = BaseController('/dev/ttyTHS1', 115200)
+# Demo
+base = BaseController('/dev/ttyUSB0', 115200)
 
 threading.Thread(target=lambda: base.breath_light(20), daemon=True).start()
 
