@@ -8,7 +8,7 @@
 
 ```sh
 # Register the system on RHN
-sudo subscription-manager register --org 1979710 --activationkey nmasse-crazy-train
+sudo subscription-manager register --org 1979710 --activationkey REDACTED
 
 # Enable EPEL
 sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
@@ -39,7 +39,7 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl restart nvidia-cdi-refresh.service
 ls -l /etc/cdi/nvidia.yaml
-sudo podman login nvcr.io --username='$oauthtoken' --password='YmdvNGtrcmxtdnB2Mjk3Y3Vnc3VrYmk2MGg6MzhmNTM1MmYtMGNiOC00ZTgzLTg5OWYtZTVjMzU5NzUxZjhj'
+sudo podman login nvcr.io --username='$oauthtoken' --password='REDACTED'
 sudo podman pull nvcr.io/nvidia/l4t-jetpack:r36.3.0
 sudo pip3 install jetson-stats
 sudo systemctl enable --now jtop.service
