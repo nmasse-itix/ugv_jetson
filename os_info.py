@@ -8,6 +8,17 @@ thisPath = os.path.dirname(curpath)
 
 class SystemInfo(threading.Thread):
     """docstring for SystemInfo"""
+    @staticmethod
+    def _find_interface(prefixes, exclude_prefixes=()):
+        for iface in netifaces.interfaces():
+            if iface == 'lo':
+                continue
+            if any(iface.startswith(p) for p in exclude_prefixes):
+                continue
+            if any(iface.startswith(p) for p in prefixes):
+                return iface
+        return None
+
     def __init__(self):
         self.this_path = None
 
@@ -18,7 +29,8 @@ class SystemInfo(threading.Thread):
         self.ram = 0
         self.wifi_rssi = 0
 
-        self.net_interface = "wlan0"
+        self.net_interface = self._find_interface(('wlan', 'wl')) or "wlan0"
+        self._eth_interface = self._find_interface(('eth', 'en'), exclude_prefixes=('wlan', 'wl')) or "eth0"
         self.wlan_ip = "None"
         self.eth0_ip = "None"
         self.wifi_mode = "None"
@@ -48,11 +60,14 @@ class SystemInfo(threading.Thread):
         threading.Thread(target=self.update_folder_size, daemon=True).start()
 
     def get_info_jtop(self):
-        with jtop() as jetson:
-            if jetson.ok():
-                self.cpu_temp = round(jetson.stats['Temp cpu'], 2)
-                self.ram = round(jetson.memory['RAM']['used']/jetson.memory['RAM']['tot']*100, 2)
-                self.cpu_load = jetson.stats['CPU1']
+        try:
+            with jtop() as jetson:
+                if jetson.ok():
+                    self.cpu_temp = round(jetson.stats['Temp cpu'], 2)
+                    self.ram = round(jetson.memory['RAM']['used']/jetson.memory['RAM']['tot']*100, 2)
+                    self.cpu_load = jetson.stats['CPU1']
+        except Exception:
+            pass
 
     def get_ip_address(self, interface):
         try:
@@ -85,7 +100,7 @@ class SystemInfo(threading.Thread):
         self.__flag.set()
 
     def run(self):
-        self.eth0_ip = self.get_ip_address('eth0')
+        self.eth0_ip = self.get_ip_address(self._eth_interface)
         self.wlan_ip = self.get_ip_address(self.net_interface)
         self.wifi_mode = self.get_wifi_mode()
         self.wifi_rssi = self.get_signal_strength()
@@ -97,7 +112,7 @@ class SystemInfo(threading.Thread):
             time.sleep(0.5)
             self.wlan_ip = self.get_ip_address(self.net_interface)
             time.sleep(0.5)
-            self.eth0_ip = self.get_ip_address('eth0')
+            self.eth0_ip = self.get_ip_address(self._eth_interface)
             time.sleep(0.5)
             self.__flag.wait()
 
