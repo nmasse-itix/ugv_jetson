@@ -1,6 +1,41 @@
 # Actions en cours
 
-## Debug du port série UART1
+## Faire fonctionner la carte son
+
+**Statut : contourné (audio désactivé dans le code)**
+
+### Problème racine
+
+Le kernel RHEL 9.4 fourni par Nvidia (`5.14.0-427.42.1.el9_4.aarch64`, paquet `nvidia-jetpack-kmod`) a été compilé avec `CONFIG_SND=not set` : le sous-système audio ALSA est entièrement absent du kernel. Il est donc impossible de charger `snd_usb_audio` par `modprobe`, et PipeWire ne peut énumérer aucun device audio réel — seul le sink virtuel `auto_null` est présent.
+
+Le device USB audio (JMTek USB PnP Audio Device, `0c76:1229`) est bien détecté au niveau USB par le kernel, mais sans ALSA il n'est pas exploitable.
+
+### Contrainte Nvidia
+
+Le kernel RHEL 9.8 (`5.14.0-687.12.1.el9_8.aarch64`), lui, dispose du support audio complet (`snd-usb-audio.ko`), mais Nvidia ne fournit pas de modules `nvidia-jetpack-kmod` pour ce kernel. Le repo Nvidia (`https://repo.download.nvidia.com/jetson/rhel-9.4/jp6.1/`) ne couvre que le kernel 9.4. Il n'existe pas encore de repo pour RHEL 9.8 ni pour JetPack 6.2+.
+
+On ne peut donc pas avoir simultanément le GPU Nvidia **et** l'audio avec les paquets actuels.
+
+### Contournement appliqué
+
+`audio_ctrl.py` a été modifié pour vérifier l'existence du sink PulseAudio avant d'appeler `pactl set-default-sink`, évitant le fallback vers `pacmd` (incompatible avec PipeWire). Quand le device USB est absent, `usb_connected = False` et toutes les fonctions audio deviennent des no-ops silencieux.
+
+### Pistes de résolution
+
+1. **Attendre un repo Nvidia pour RHEL 9.8** — solution propre, aucun travail côté noyau. Vérifier périodiquement : `curl -s https://repo.download.nvidia.com/jetson/rhel-9.8/` ou `https://repo.download.nvidia.com/jetson/rhel-9.4/jp6.2/`.
+
+2. **Compiler les modules Nvidia en DKMS pour le kernel 9.8** — récupérer les sources du driver JetPack 6.1 (`nvidia-jetpack-kmod-src` si disponible), les builder via DKMS contre `kernel-devel-5.14.0-687.12.1.el9_8.aarch64`, puis booter sur le kernel 9.8. Complexe mais donne les deux fonctionnalités.
+
+3. **Recompiler le kernel 9.4 avec `CONFIG_SND=m`** — nécessite les sources du kernel Nvidia Jetson pour RHEL 9.4 et un build complet (1–2h sur le Jetson). Risque de régression sur le GPU si les patches Nvidia ne s'appliquent pas proprement.
+
+
+## Faire fonctionner l'UART1 du Jetson Orin Nano (pins 8/10 du header 40 pins)
+
+Besoin : le Rover est piloté via une liaison série UART, et le header 40 pins du Jetson Orin Nano expose un port UART1 (TX sur pin 8, RX sur pin 10) qui serait idéal pour cette liaison.
+Cependant, ce port est désactivé dans le device tree fourni par l'UEFI de la carte.
+
+Contournement temporaire : utiliser un adaptateur USB-UART qui apparaît comme `ttyUSB0` et fonctionne sans configuration supplémentaire.
+Cela permet de faire tourner le projet dans un conteneur Jetpack sans toucher au device tree ni au bootloader.
 
 ```
 [admin@localhost ugv_jetson]$ sudo dmesg | grep -E 'serial|tty'
