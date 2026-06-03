@@ -1,7 +1,6 @@
 import cv2
 import imutils
 import mediapipe as mp
-import imageio
 import threading
 import datetime, time
 import numpy as np
@@ -27,13 +26,7 @@ class OpencvFuncs():
         self.detection_reaction_mode = f['code']['re_none']
         
         self.this_path = project_path
-        self.photo_path = self.this_path + '/templates/pictures/'
-        self.video_path = self.this_path + '/templates/videos/'
         self.frame_scale = 1
-        self.picture_capture_flag = False
-        self.set_video_record_flag = False
-        self.video_record_status_flag = False
-        self.writer = None
         self.overlay = None
         self.scale_rate = 1
         self.video_quality = f['video']['default_quality']
@@ -204,35 +197,6 @@ class OpencvFuncs():
         # render osd
         input_frame = self.osd_render(input_frame)
 
-        # capture frame
-        if self.picture_capture_flag:
-            current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            photo_filename = f'{self.photo_path}photo_{current_time}.jpg'
-            try:
-                cv2.imwrite(photo_filename, input_frame)
-                self.picture_capture_flag = False
-                print(photo_filename)
-            except:
-                pass
-
-        # record video
-        if not self.set_video_record_flag and not self.video_record_status_flag:
-            pass
-        elif self.set_video_record_flag and not self.video_record_status_flag:
-            current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            video_filename = f'{self.video_path}video_{current_time}.mp4'
-            self.writer = imageio.get_writer(video_filename, fps=30, codec='libx264')
-            self.video_record_status_flag = True
-        elif self.set_video_record_flag and self.video_record_status_flag:
-            cv2.circle(input_frame, (15, 15), 5, (64, 64, 255), -1)
-            rgb_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGRA2RGB)
-            rgb_frame_3d = np.expand_dims(rgb_frame, axis=0)
-            self.writer.append_data(rgb_frame_3d)
-            # self.writer.append_data(np.array(cv2.cvtColor(input_frame, cv2.COLOR_BGRA2RGB)))
-        elif not self.set_video_record_flag and self.video_record_status_flag:
-            self.video_record_status_flag = False
-            self.writer.close()
-
         # frame scale
         if self.scale_rate == 1:
             pass
@@ -304,15 +268,6 @@ class OpencvFuncs():
 
         return osd_frame
 
-    def picture_capture(self):
-        self.picture_capture_flag = True
-
-    def video_record(self, input_cmd):
-        if input_cmd:
-            self.set_video_record_flag = True
-        else:
-            self.set_video_record_flag = False
-
     def scale_ctrl(self, input_rate):
         if input_rate < 1:
             self.scale_rate = 1
@@ -329,13 +284,9 @@ class OpencvFuncs():
 
     def set_cv_mode(self, input_mode):
         self.cv_mode = input_mode
-        if self.cv_mode == f['code']['cv_none']:
-            self.set_video_record_flag = False
 
     def set_detection_reaction(self, input_reaction):
         self.detection_reaction_mode = input_reaction
-        if self.detection_reaction_mode == f['code']['re_none']:
-            self.set_video_record_flag = False
 
 
 
@@ -371,19 +322,7 @@ class OpencvFuncs():
             cv2.rectangle(overlay_buffer, (mov_x, mov_y), (mov_x + mov_w, mov_y + mov_h), (128, 255, 0), 1)
             self.last_movtion_captured = timestamp
 
-            if(timestamp - self.last_frame_capture_time).seconds >= 1:
-                if self.detection_reaction_mode == f['code']['re_none']:
-                    pass
-                elif self.detection_reaction_mode == f['code']['re_capt']: 
-                    self.picture_capture()
-                elif self.detection_reaction_mode == f['code']['re_reco']:
-                    self.video_record(True)
-                self.last_frame_capture_time = datetime.datetime.now()
-            
-        if (timestamp - self.last_movtion_captured).seconds >= 1.5:
-            if self.detection_reaction_mode == f['code']['re_reco']:
-                if(timestamp - self.last_frame_capture_time).seconds >= 5:
-                    self.video_record(False)
+            self.last_frame_capture_time = datetime.datetime.now()
 
         self.overlay = overlay_buffer
 
@@ -441,23 +380,12 @@ class OpencvFuncs():
             if not self.cv_movtion_lock:
                 self.gimbal_track(center_x, center_y, max_face_center[0], max_face_center[1], self.track_faces_iterate)
 
-            if(datetime.datetime.now() - self.last_frame_capture_time).seconds >= 3:
-                if self.detection_reaction_mode == f['code']['re_none']:
-                    pass
-                elif self.detection_reaction_mode == f['code']['re_capt']:
-                    self.picture_capture()
-                elif self.detection_reaction_mode == f['code']['re_reco']:
-                    self.video_record(True)
                 self.last_frame_capture_time = datetime.datetime.now()
         else:
             if self.cv_light_mode == 1:
                 if self.base_ctrl.head_light_status != 0:
                     self.base_ctrl.head_light_status = 0
                     self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, self.base_ctrl.head_light_status)
-
-            if self.detection_reaction_mode == f['code']['re_reco']:
-                if(datetime.datetime.now() - self.last_frame_capture_time).seconds >= 5:
-                    self.video_record(False)
 
         cv2.putText(overlay_buffer, 'NUMBER: {}'.format(len(faces)), (center_x+50, center_y+40), 
                                                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
@@ -664,17 +592,6 @@ class OpencvFuncs():
                     #     print(f"dis:{tips_distance} max:{self.max_distance} pwm:{get_pwm}")
                     # except Exception as e:
                     #     print(e)
-
-                # Take Pic
-                elif middle_finger_gs < 10 and pinky_finger_gs > 90 and index_finger_gs < 10:
-                    cv2.putText(overlay_buffer, ' GS: Take Pic', (center_x+50, center_y+100), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 128), 1)
-                    if time.time() - self.gs_pic_last_time > self.gs_pic_interval:
-                        self.base_ctrl.lights_ctrl(255, 255)
-                        time.sleep(0.01)
-                        self.picture_capture()
-                        self.base_ctrl.lights_ctrl(0, 0)
-                        self.gs_pic_last_time = time.time()
 
                 # Not Found
                 else:
@@ -973,7 +890,6 @@ class OpencvFuncs():
             time.sleep(input_interval/2)
             self.base_ctrl.lights_ctrl(255, 255)
             time.sleep(0.01)
-            self.picture_capture()
             self.base_ctrl.lights_ctrl(0, 0)
             time.sleep(input_interval/2)
             if not self.mission_flag:

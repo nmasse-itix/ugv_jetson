@@ -3,7 +3,6 @@ var cmd_gimbal_ctrl, cmd_gimbal_steady, cmd_arm_ctrl_ui;
 var max_rate, mid_rate, min_rate, arm_default_e, arm_default_r, arm_default_z; 
 var max_res, mid_res, min_res; 
 var zoom_x1, zoom_x2, zoom_x4;
-var pic_cap, vid_sta, vid_end;
 var mc_lock, mc_unlo;
 var cv_none, cv_moti, cv_face, cv_objs, cv_clor, mp_hand, cv_auto;
 var mp_face, mp_pose;
@@ -12,7 +11,7 @@ var head_ct, base_ct;
 var s_panid, release, set_mid, s_tilid;
 var armZ, armR, armE;
 
-var detect_type, led_mode, detect_react, picture_size, video_size, cpu_load;
+var detect_type, led_mode, detect_react, cpu_load;
 var cpu_temp, ram_usage, pan_angle, tilt_angle, wifi_rssi, base_voltage, video_fps;
 var cv_movtion_mode, base_light;
 
@@ -52,10 +51,6 @@ fetch('/config')
       zoom_x2 = yamlObject.code.zoom_x2;
       zoom_x4 = yamlObject.code.zoom_x4;
 
-      pic_cap = yamlObject.code.pic_cap;
-      vid_sta = yamlObject.code.vid_sta;
-      vid_end = yamlObject.code.vid_end;
-
       mc_lock = yamlObject.code.mc_lock;
       mc_unlo = yamlObject.code.mc_unlo;
 
@@ -88,8 +83,6 @@ fetch('/config')
       detect_type = yamlObject.fb.detect_type;
       led_mode    = yamlObject.fb.led_mode;
       detect_react= yamlObject.fb.detect_react;
-      picture_size= yamlObject.fb.picture_size;
-      video_size  = yamlObject.fb.video_size;
       cpu_load    = yamlObject.fb.cpu_load;
       cpu_temp    = yamlObject.fb.cpu_temp;
       ram_usage   = yamlObject.fb.ram_usage;
@@ -112,105 +105,6 @@ fetch('/config')
     console.error('Error fetching YAML file:', error);
   });
 
-//update photos list
-function generatePhotoLink(imgname) {
-    var strippedname = imgname.replace("photo_", "").replace(".jpg", "");
-    var photoLink = '<li><a target="_blank" href="./pictures/' + imgname + '" ><img class="photo_img" data-filename="' +imgname + '" src="./pictures/' + imgname + '" /></a>';
-    photoLink += '<p>' + strippedname + '</p>';
-    photoLink += '<div class="delete_btn"><button class="normal_btn delete_btn_size normal_btn_del btn_ico"></button></div></li>';
-    return photoLink;
-}
-function updatePhotoNames() {
-    $.get('/get_photo_names', function(data) {
-        var photoLinks = '';
-        if (window.location.pathname === '/') {
-            for (var i = 0; i < Math.min(6,data.length); i++) {
-                var name = data[i];
-                photoLinks += generatePhotoLink(name);
-            }
-            $('#photo-list').html(photoLinks);
-        } else {
-            for (var i = 0; i < data.length; i++) {
-                var name = data[i];
-                photoLinks += generatePhotoLink(name);
-            }
-            $('#photo-list').html(photoLinks);
-        }
-        $("#number-photos").text(data.length);
-        //delete photo
-        $("#photo-list li button").on("click", function () {
-        var filename = $(this).closest("li").find("img.photo_img").data('filename');
-        $.post('/delete_photo', { filename: filename }, function(response) {
-            if (response.success) {
-                updatePhotoNames();
-            } else {
-                alert("Failed to delete the file.");
-            }
-        });
-    });
-    });
-}
-updatePhotoNames();
-// setInterval(updatePhotoNames, 2000);
-
-function captureAndUpdate() {
-    cmdSend(pic_cap,0,0);
-    setTimeout(updatePhotoNames, 2000)
-}
-
-//show videos tips
-function showVideosTips(){
-    var videostipsbox =  $("#video-del-tips");
-    videostipsbox.css("opacity", "1");
-    videostipsbox.css("transform", `translate(-50%, -100%)`);
-    setTimeout(function() {
-        videostipsbox.removeAttr("style");
-    }, 2000);
-}
-
-//update videos list
-function generateVideoLink(vname) {
-    var strippedname = vname.replace("video_", "").replace(".mp4", "");
-    var videoList = '<li><a target="_blank" data-filename="' + vname + '" href="./videos/' + vname +'">';
-    videoList += '<p>' + strippedname + '</p>';
-    videoList += '<div><div class="delete_btn_size normal_btn_play btn_ico"></div></div></a>';
-    videoList += '<div class="delete_btn"><div class="delete_btn_size normal_btn_del btn_ico"></div></div></li>';
-    return videoList;
-}
-function updateVideoList() {
-    $.get('/get_video_names', function(data) {
-        var videosLists = '';
-        if (window.location.pathname === '/') {
-            for (var i = 0; i < Math.min(6,data.length); i++) {
-                var name = data[i];
-                videosLists += generateVideoLink(name);
-            }
-            $('#video-list').html(videosLists);
-        } else {
-            for (var i = 0; i < data.length; i++) {
-                var name = data[i];
-                videosLists += generateVideoLink(name);
-            }
-            $('#video-list').html(videosLists);
-        }
-        $("#number-videos").text(data.length);
-        //delete videos
-        $("#video-list li div.normal_btn_del").on("click", function () {
-        var filename = $(this).closest("li").find("a").data('filename');
-        $.post('/delete_video', { filename: filename }, function(response) {
-            if (response.success) {
-                updateVideoList();
-                showVideosTips();
-            } else {
-                alert("Failed to delete the video.");
-                }
-            });
-        });
-    });
-}
-updateVideoList();
-
-
 //video pixel
 var listItems = $("#video_pixel_btn_list").children("li");
 listItems.on("click", function () {
@@ -220,46 +114,6 @@ listItems.on("click", function () {
     setTimeout(function () {
         $("#video_pixel_btn_list").removeAttr("style");
     }, 10);  
-});
-
-//record function
-var isRecording = false;
-var originalText = "Record";
-var timerInterval;
-var seconds = 0;
-var minutes = 0;
-function updateTimer() {
-    seconds++;
-    if (seconds === 60) {
-        seconds = 0;
-        minutes++;
-    }
-    var formattedTime = (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
-    $("#record-btn").text(formattedTime);
-}
-$(document).ready(function () {
-    $("#record-btn").click(function () {
-        if (!isRecording) {
-            cmdSend(vid_sta,0,0);
-            $(this).css("color", "#FF8C8C");
-            $(this).removeClass("video_btn_record");
-            $(this).addClass("video_btn_stop");
-            isRecording = true;
-            $(this).text("00:00");
-            timerInterval = setInterval(updateTimer, 1000);
-        } else {
-            cmdSend(vid_end,0,0);
-            $(this).removeClass("video_btn_stop");
-            $(this).addClass("video_btn_record");
-            $(this).text(originalText);
-            isRecording = false;
-            clearInterval(timerInterval);
-            seconds = 0;
-            minutes = 0;
-            $(this).css("color", "");
-            updateVideoList();
-        }
-    });
 });
 
 //zoom
@@ -725,9 +579,6 @@ socket.on('update', function(data) {
         // document.getElementById("rssi").innerHTML = data[wifi_rssi] + " dBm";
         document.getElementById("fps").innerHTML = data[video_fps].toFixed(1);
         
-        document.getElementById("photos-size").innerHTML = data[picture_size] + " MB";
-        document.getElementById("videos-size").innerHTML = data[video_size] + " MB";
-
         document.getElementById("v_in").innerHTML = data[base_voltage].toFixed(1);
         
         var element = document.getElementById("b_state");
@@ -957,11 +808,6 @@ function cmdProcess() {
         cmdSend(base_ct, 0, 0);
     }
 
-    // Photo Capture
-    if (ctrl_buttons.e == 1){
-        cmdSend(pic_cap, 0, 0);
-    }
-
     // Function Ctrl
     if (ctrl_buttons.r == 1){
         cmdSend(head_ct, 0, 0);
@@ -1106,9 +952,6 @@ var last_gp_lt2 = false;
 var last_gp_rt1 = false;
 var last_gp_rt2 = false;
 
-var last_gp_record = false;
-var last_gp_picture = false;
-
 var gp_pt_x = 0;
 var gp_pt_y = 0;
 var last_gp_pt_x = 0;
@@ -1189,39 +1032,6 @@ function readGamepad() {
         cmdJsonCmd({"T":13,"X":gp_x,"Z":gp_z});
         last_gp_x = gp_x;
         last_gp_z = gp_z;
-      }
-
-      if(last_gp_record != gp.buttons[9].pressed){
-        if (gp.buttons[9].pressed) {
-            if (!isRecording) {
-                cmdSend(vid_sta,0,0);
-                $(document).css("color", "#FF8C8C");
-                $(document).removeClass("video_btn_record");
-                $(document).addClass("video_btn_stop");
-                isRecording = true;
-                $(document).text("00:00");
-                timerInterval = setInterval(updateTimer, 1000);
-            } else {
-                cmdSend(vid_end,0,0);
-                $(document).removeClass("video_btn_stop");
-                $(document).addClass("video_btn_record");
-                $(document).text(originalText);
-                isRecording = false;
-                clearInterval(timerInterval);
-                seconds = 0;
-                minutes = 0;
-                $(document).css("color", "");
-                updateVideoList();
-            }
-        }
-        last_gp_record = gp.buttons[9].pressed;
-      }
-
-      if(last_gp_picture != gp.buttons[8].pressed){
-        if (gp.buttons[8].pressed) {
-            cmdSend(pic_cap,0,0);
-        }
-        last_gp_picture = gp.buttons[8].pressed;
       }
 
       if (module_type != 1) {

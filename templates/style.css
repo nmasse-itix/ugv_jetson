@@ -388,8 +388,6 @@ main {
     width: 24px;
     height: 24px;
 }
-.video_btn_stop,
-.video_btn_record,
 .views{width: 138px;}
 .ctl_btn{
     background-color: rgba(0,0,0,0);
@@ -410,16 +408,8 @@ main {
     background-image: linear-gradient(to bottom right, rgba(202,213,255,0.15), rgba(202, 213, 255,0.05));
 }
 .ctl_btn_active:hover{border: 1px solid rgba(202,213,255,0.15);}
-.video_btn_record::before{background-image: url('./img/grey/record.svg');margin-right: 10px;}
-.video_btn_record:hover::before{background-image: url('./img/white/record.svg');margin-right: 10px;}
-.video_btn_stop::before{background-image: url('./img/grey/record_stop.svg');margin-right: 10px;}
 .video_btn_zoom::before{background-image: url('./img/grey/zoom.svg');}
 .video_btn_zoom:hover::before{background-image: url('./img/white/zoom.svg');}
-.normal_btn_del::before{background-image: url('./img/grey/delete.svg');}
-.normal_btn_del:visited::before{background-image: url('./img/grey/delete.svg');}
-.normal_btn_del:hover::before{background-image: url('./img/white/delete.svg');}
-.normal_btn_play::before{background-image: url('./img/grey/play.svg');}
-ul.video-list li a:hover div .normal_btn_play::before{background-image: url('./img/white/play.svg');}
 .ctl_btn_mov::before{background-image: url('./img/grey/movtion.svg');}
 .ctl_btn_mov.ctl_btn_active::before{background-image: url('./img/white/movtion.svg');}
 .ctl_btn_faces::before{background-image: url('./img/grey/faces.svg');}
@@ -430,8 +420,6 @@ ul.video-list li a:hover div .normal_btn_play::before{background-image: url('./i
 .ctl_btn_record.ctl_btn_active::before{background-image: url('./img/white/record.svg');}
 .ico_setting::before{background-image: url('./img/white/setting.svg');}
 .normal_btn_size{min-width: 64px;}
-.video_btn_record,
-.video_btn_stop,
 .normal_btn_size{height: 48px;}
 .normal_btn_w{width: 138px;}
 .normal_btn{
@@ -443,22 +431,10 @@ ul.video-list li a:hover div .normal_btn_play::before{background-image: url('./i
     cursor: pointer;
 }
 .normal_btn:hover{color: #4FF5C0;}
-.video_btn_stop:hover{color: #FF9393;}
 .normal_btn:active{
     background-color:rgba(203,213,255,0.04);
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
-.video_btn_capture{
-    width: 68px;
-    height: 68px;
-    background-image: url('./img/white/capture.svg');
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-size: 50% 50%;
-    border-radius: 100%;
-    margin: 0 40px;
-}
-.video_btn_capture:hover{background-image: url('./img/white/capture.svg');}
 .views{
     display: flex;
     justify-content: space-between;
@@ -583,69 +559,6 @@ ul.video-list li a:hover div .normal_btn_play::before{background-image: url('./i
     text-align: center;
     opacity: 1;
 }
-.photo_gallery ul li{
-    position: relative;
-    margin-right: 10px;
-    margin-bottom: 30px;
-    text-align: center;
-}
-.photo_gallery ul li:hover .delete_btn{
-    visibility: visible;
-    opacity: 1;
-}
-.photo_gallery .photo_img{
-    width: 210px;
-    height: 158px;
-    background-color: black;
-}
-.photo_gallery .delete_btn{
-    visibility: hidden;
-    opacity: 0;
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    transition: opacity 0.3s ease-out;
-}
-.photo_gallery .photo_img:hover{box-shadow: 0 4px 10px rgba(0,0,0,0.3);}
-.photo_gallery ul,
-.video_files ul{
-    display: flex;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-}
-.video_files ul li{
-    width: 430px;
-    margin: 0 10px 10px 0;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.video_files ul li .delete_btn {
-    width: 0px;
-    visibility: hidden;
-    transition: width 0.3s ease-out;
-}
-.video_files ul li:hover .delete_btn {
-    width: 58px;
-    visibility:visible;
-    margin-left: 10px;
-}
-.video_files ul li a{
-    text-decoration: none;
-    color: inherit;
-    display: flex;
-    flex: 1;
-    justify-content: space-between;
-    align-items: center;
-    background-color: rgba(202, 213, 255,0.08);
-    padding: 0 20px;
-}
-.video_files ul li a:hover{
-    background-color: rgba(202, 213, 255,0.1);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    color: #4FF5C0;
-}
 .long_btn a{
     display: flex;
     width: 428px;
@@ -668,27 +581,7 @@ ul.video-list li a:hover div .normal_btn_play::before{background-image: url('./i
     display: flex;
     justify-content: center;
 }
-.video-del-tips{
-    opacity: 0;
-    position: fixed;
-    top: 10%;
-    left: 50%;
-    z-index: 20;
-    transform: translate(-50%, -50%);
-    width: 300px;
-    height: 40px;
-    line-height: 40px;
-    border-radius: 4px;
-    background-color: #00a10d;
-    color: white;
-    text-align: center;
-    transition: transform 0.5s ease-out;
-}
-.video-del-tips p{
-    margin: 0;
-    user-select: none;
-}
-/* setting page */ 
+/* setting page */
 .setting{
     width: 620px;
     margin: auto;
@@ -925,57 +818,13 @@ ul.video-list li a:hover div .normal_btn_play::before{background-image: url('./i
     .feed_ctrl_btn > div > div{
         justify-content: space-between;
     }
-    .photo_gallery .photo_img{
-        width: 45vw;
-        height: auto;
-    }
-    .photo_gallery ul,
-    .video_files ul{
-        justify-content: space-between;
-        padding: 4vw;
-    }
-    .photo_gallery ul li{
-        margin: 0;
-    }
     .normal_sc_title{
         font-size: 2em;
         padding:0 4%;
     }
-    .video_files ul li{
-        width: 100%;
-        margin: 0 0 10px 0;
-    }
-    .video_files ul li .delete_btn{
-        visibility: visible;
-        width: 58px;
-        height: 58px;
-    }
-    .video_files ul li a{
-        height: 58px;
-        margin-right: 10px;
-        padding: 0 0 0 20px;
-    }
-    .video_files ul li:hover .delete_btn {
-        width: 58px;
-        visibility:visible;
-        margin-left: 0;
-    }
-    .normal_btn_del{
-        background-color: rgba(202, 213, 255,0.08);
-        margin-left: 0;
-        margin: auto;
-        padding: 0;
-    }
-    .video_files .delete_btn_size{
-        width: 58px;
-        height: 58px;
-    }
     .long_btn{margin-right: 0;}
     .long_btn a{width: 92vw;}
-    .video_btn_stop,
-    .video_btn_record,
     .views{width: 106px;}
-    .video_btn_capture{margin: 0 29px;}
     .normal_btn_size{min-width: 48px;}
     .ctl_btn{
         width: 100%;
@@ -1009,10 +858,6 @@ ul.video-list li a:hover div .normal_btn_play::before{background-image: url('./i
         height: 68px;
     }
     .video_feed .feed_b{width: 90px;}
-    .photo_gallery .delete_btn{
-        visibility: visible;
-        opacity: 1;
-    }
     .two_long_btn{
         display: block;
     }

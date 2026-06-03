@@ -81,10 +81,6 @@ cmd_actions = {
     f['code']['zoom_x2']: lambda: cvf.scale_ctrl(2),
     f['code']['zoom_x4']: lambda: cvf.scale_ctrl(4),
 
-    f['code']['pic_cap']: cvf.picture_capture,
-    f['code']['vid_sta']: lambda: cvf.video_record(True),
-    f['code']['vid_end']: lambda: cvf.video_record(False),
-
     f['code']['cv_none']: lambda: cvf.set_cv_mode(f['code']['cv_none']),
     f['code']['cv_moti']: lambda: cvf.set_cv_mode(f['code']['cv_moti']),
     f['code']['cv_face']: lambda: cvf.set_cv_mode(f['code']['cv_face']),
@@ -169,43 +165,6 @@ def get_config():
 def serve_static(filename):
     return send_from_directory('templates', filename)
 
-@app.route('/get_photo_names')
-def get_photo_names():
-    photo_files = sorted(os.listdir(thisPath + '/templates/pictures'), key=lambda x: os.path.getmtime(os.path.join(thisPath + '/templates/pictures', x)), reverse=True)
-    return jsonify(photo_files)
-
-@app.route('/delete_photo', methods=['POST'])
-def delete_photo():
-    filename = request.form.get('filename')
-    try:
-        os.remove(os.path.join(thisPath + '/templates/pictures', filename))
-        return jsonify(success=True)
-    except Exception as e:
-        print(e)
-        return jsonify(success=False)
-
-@app.route('/videos/<path:filename>')
-def videos(filename):
-    return send_from_directory(thisPath + '/templates/videos', filename)
-
-@app.route('/get_video_names')
-def get_video_names():
-    video_files = sorted(
-        [filename for filename in os.listdir(thisPath + '/templates/videos/') if filename.endswith('.mp4')],
-        key=lambda filename: os.path.getctime(os.path.join(thisPath + '/templates/videos/', filename)),
-        reverse=True
-    )
-    return jsonify(video_files)
-
-@app.route('/delete_video', methods=['POST'])
-def delete_video():
-    filename = request.form.get('filename')
-    try:
-        os.remove(os.path.join(thisPath + '/templates/videos', filename))
-        return jsonify(success=True)
-    except Exception as e:
-        print(e)
-        return jsonify(success=False)
 
 
 
@@ -334,14 +293,6 @@ def cmdline_ctrl(args_string):
             cvf.change_target_color(lower_nums, upper_nums)
         elif args[1] == '-s' or args[1] == '--select':
             cvf.selet_target_color(args[2])
-
-    elif args[0] == 'video' or args[0] == 'v':
-        if args[1] == '-q' or args[1] == '--quality':
-            try:
-                int(args[2])
-            except:
-                return
-            cvf.set_video_quality(int(args[2]))
 
     elif args[0] == 'line':
         if args[1] == '-r' or args[1] == '--range':
@@ -495,8 +446,6 @@ def update_data_websocket_single():
     # {'T':1001,'L':0,'R':0,'r':0,'p':0,'v': 1100,'pan':0,'tilt':0}  # v is in centivolts
     try:
         socket_data = {
-            f['fb']['picture_size']:si.pictures_size,
-            f['fb']['video_size']:  si.videos_size,
             f['fb']['cpu_load']:    si.cpu_load,
             f['fb']['cpu_temp']:    si.cpu_temp,
             f['fb']['ram_usage']:   si.ram,
@@ -604,9 +553,6 @@ if __name__ == "__main__":
     # play a audio file in /sounds/robot_started/
     audio_ctrl.play_random_audio("robot_started", False)
 
-    # update the size of videos and pictures
-    si.update_folder(thisPath)
-
     # pt/arm looks forward
     if f['base_config']['module_type'] == 1:
         base.base_json_ctrl({"T":f['cmd_config']['cmd_arm_ctrl_ui'],"E":f['args_config']['arm_default_e'],"Z":f['args_config']['arm_default_z'],"R":f['args_config']['arm_default_r']})
@@ -629,11 +575,11 @@ if __name__ == "__main__":
     cmd_on_boot()
 
     def _shutdown(sig, frame):
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
         print(f"\n[app] signal {sig} received, shutting down...")
         shutdown_event.set()
-        raise KeyboardInterrupt
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        os.kill(os.getpid(), sig)
 
     signal.signal(signal.SIGINT, _shutdown)
     signal.signal(signal.SIGTERM, _shutdown)

@@ -45,10 +45,6 @@ echo "# Activate a Python virtual environment."
 echo "# Install dependencies from requirements.txt"
 sudo -H -u $USER bash -c 'source $PWD/ugv-env/bin/activate && pip install --upgrade setuptools pip && pip install -r requirements.txt && deactivate'
 
-# Audio Config
-# echo "# Audio Config."
-# sudo cp -v -f /home/$(logname)/ugv_jetson/asound.conf /etc/asound.conf
-
 echo "Setup completed. Please to reboot your Jetson for the changes to take effect."
 
 echo "Use the command below to run app.py onboot."

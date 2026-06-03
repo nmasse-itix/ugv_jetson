@@ -60,8 +60,6 @@
                                 <div>
                                     <div class="feed feed_l_b">
                                         <p><span>Zoom: </span><span id="zoom-num">1x</span></p>
-                                        <p><span>Photos: </span><span id="photos-size">0</span></p>
-                                        <p><span>Videos: </span><span id="videos-size">0</span></p>
                                     </div>
                                     <div class="feed feed_b">
                                         <div class="pan">
@@ -88,8 +86,6 @@
                 </div>
                 <div class="video_ctrl">
                     <div>
-                        <div class="record"><div><button id="record-btn" class="normal_btn video_btn_record btn_ico">Record</button></div></div>
-                        <div class="capture"><div><button class="normal_btn video_btn_capture" onclick="captureAndUpdate()"></button></div></div>
                         <div class="views">
                             <div><button class="normal_btn normal_btn_size video_btn_zoom btn_ico" id="zoom_btn"></button></div>
                             <div class="video_btn_px_select">
@@ -277,26 +273,6 @@
         </div>
         <div class="box2">
             <section>
-                <div class="photo_gallery">
-                    <h2 class="sc_title normal_sc_title">Photo Gallery</h2>
-                    <ul id="photo-list">
-                    </ul>
-                    <div class="long_btn new_page">
-                        <a href="./photo.html"><span>View Photo Gallery Page</span>&nbsp;(<span id="number-photos">0</span>)&nbsp;<span>&gt;</span></a>
-                    </div>
-                </div>
-            </section>
-            <section>
-                <div class="video_files">
-                    <h2 class="sc_title normal_sc_title">Video Files</h2>
-                    <ul class="video-list" id="video-list">
-                    </ul>
-                    <div class="long_btn new_page">
-                        <a href="./video.html"><span>View Video Files Page</span>&nbsp;(<span id="number-videos">0</span>)&nbsp;<span>&gt;</span></a>
-                    </div>
-                </div>
-            </section>
-            <section>
                 <div>
                     <h2 id="test" class="sc_title normal_sc_title">Bus Servos Initialization Setup</h2>
                     <div class="long_btn new_page ">
@@ -306,7 +282,6 @@
             </section>
         </div>
     </main>
-    <div id="video-del-tips" class="video-del-tips"><p>Successfully deleted video</p></div>
     <div id="dbg-panel" style="position:fixed;bottom:8px;right:8px;background:rgba(0,0,0,0.82);color:#0f0;font:12px monospace;padding:8px 10px;border-radius:6px;z-index:9999;min-width:280px;max-width:360px;line-height:1.6;">
         <b style="color:#ff0">DEBUG</b> <button onclick="document.getElementById('dbg-panel').style.display='none'" style="float:right;background:#333;color:#fff;border:none;cursor:pointer;padding:1px 5px;">✕</button>
         <br>socket /json: <span id="dbg-sock">?</span>

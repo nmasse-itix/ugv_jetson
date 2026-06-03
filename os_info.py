@@ -20,10 +20,6 @@ class SystemInfo(threading.Thread):
         return None
 
     def __init__(self):
-        self.this_path = None
-
-        self.pictures_size = 0
-        self.videos_size = 0
         self.cpu_load = 0
         self.cpu_temp = 0
         self.ram = 0
@@ -40,24 +36,6 @@ class SystemInfo(threading.Thread):
         super(SystemInfo, self).__init__()
         self.__flag = threading.Event()
         self.__flag.clear()
-
-    def get_folder_size(self, folder_path):
-        total_size = 0
-        for dirpath, dirnames, filenames in os.walk(folder_path):
-            for filename in filenames:
-                file_path = os.path.join(dirpath, filename)
-                total_size += os.path.getsize(file_path)
-        # Convert total_size to MB
-        size_in_mb = total_size / (1024 * 1024)
-        return round(size_in_mb, 2)
-
-    def update_folder_size(self):
-        self.pictures_size = self.get_folder_size(self.this_path + '/templates/pictures')
-        self.videos_size = self.get_folder_size(self.this_path + '/templates/videos')
-
-    def update_folder(self, input_path):
-        self.this_path = input_path
-        threading.Thread(target=self.update_folder_size, daemon=True).start()
 
     def get_info_jtop(self):
         try:
