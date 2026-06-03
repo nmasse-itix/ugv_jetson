@@ -137,6 +137,7 @@ class OpencvFuncs():
 
         # osd settings
         self.add_osd = f['base_config']['add_osd']
+        self.show_cmd_info = f['base_config'].get('show_cmd_info', True)
 
         # camera type detection
         self.usb_camera_connected = True
@@ -826,6 +827,8 @@ class OpencvFuncs():
 
 
     def info_update(self, megs, color, size):
+        if not self.show_cmd_info:
+            return
         if megs == -1:
             self.info_update_time = time.time()
             self.show_info_flag = True

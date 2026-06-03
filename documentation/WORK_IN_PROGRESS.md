@@ -15,7 +15,7 @@ sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.
 sudo crb enable
 
 # Install misc. tools
-sudo dnf install -y bluez pciutils usbutils tcpdump htop stress-ng yq podman-compose tmux iptraf-ng mkpasswd cockpit cockpit-podman cockpit-podman cockpit-files cockpit-ostree cockpit-pcp cockpit-system strace NetworkManager-wifi chromium git python3-pip tio pulseaudio-utils
+sudo dnf install -y bluez pciutils usbutils tcpdump htop stress-ng yq podman-compose tmux iptraf-ng mkpasswd cockpit cockpit-podman cockpit-podman cockpit-files cockpit-ostree cockpit-pcp cockpit-system strace NetworkManager-wifi chromium git python3-pip tio pulseaudio-utils v4l-utils
 
 # Enable services
 sudo systemctl enable cockpit.socket sshd.service bluetooth.service
@@ -117,10 +117,10 @@ useradd -M -d /home/admin -g 1000 -u 1000 admin
 usermod -aG sudo admin
 chsh admin -s /bin/bash
 apt update
-apt install vim sudo python3 apt-file pulseaudio-utils strace espeak-ng espeak-ng-data
+apt install vim sudo python3 apt-file pulseaudio-utils strace espeak-ng espeak-ng-data curl
 # Fix HMAC mismatch: RHEL Python 3.9 uses SHA-256 for multiprocessing auth, Ubuntu Python 3.10 defaults to MD5
-sed -i "s/hmac.new(authkey, message, 'md5')/hmac.new(authkey, message, 'sha256')/g" \
-  /usr/lib/python3.10/multiprocessing/connection.py
+# It impacts the connection between the jtop service on the host and the jtop client in the container, which causes jtop to not work in the container
+sed -i "s/hmac.new(authkey, message, 'md5')/hmac.new(authkey, message, 'sha256')/g" /usr/lib/python3.10/multiprocessing/connection.py
 sudo tee /etc/sudoers.d/admin >/dev/null <<'EOF'
 admin ALL=(ALL) NOPASSWD:ALL
 EOF
@@ -131,6 +131,12 @@ chmod 755 *.sh
 sudo ./setup.sh
 sudo pip3 install jetson-stats
 mkdir -p ~/.config/pulse
+
+# Install the Computer Vision tools
+~/ugv_jetson/ugv-env/bin/pip install ultralytics
+curl -sSfL -o /tmp/onnxruntime_gpu-1.19.0-cp310-cp310-linux_aarch64.whl https://nvidia.box.com/shared/static/6l0u97rj80ifwkk8rqbzj1try89fk26z.whl # See https://elinux.org/Jetson_Zoo
+~/ugv_jetson/ugv-env/bin/pip install /tmp/onnxruntime_gpu-1.19.0-cp310-cp310-linux_aarch64.whl
+~/ugv_jetson/ugv-env/bin/yolo export model=yolov8n.pt format=onnx opset=17
 ```
 
 Prendre un instantané du conteneur:
@@ -196,3 +202,172 @@ sudo podman exec -it nvidia-jetpack /bin/bash
 ./start_jupyter.sh &
 ~/ugv_jetson/ugv-env/bin/python ~/ugv_jetson/app.py
 ```
+
+## Déploiement de Hermes
+
+```sh
+sudo dnf install -y https://download1.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-9.noarch.rpm
+sudo dnf install --allow-erasing -y ripgrep ffmpeg
+curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+hermes gateway install
+uv pip install --python ~/.hermes/hermes-agent/venv/bin/python -e ~/.hermes/hermes-agent'[web,pty]'
+cat > ~/.config/systemd/user/hermes-dashboard.service <<'EOF'
+[Unit]
+Description=Hermes Agent - Web Dashboard
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/home/admin/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main dashboard --host 0.0.0.0 --no-open --insecure --tui
+WorkingDirectory=/home/admin/.hermes
+Environment="PATH=/home/admin/.hermes/hermes-agent/venv/bin:/home/admin/.hermes/node/bin:/home/admin/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="VIRTUAL_ENV=/home/admin/.hermes/hermes-agent/venv"
+Environment="HERMES_HOME=/home/admin/.hermes"
+Restart=always
+RestartSec=5
+RestartMaxDelaySec=300
+RestartSteps=5
+RestartForceExitStatus=75
+KillMode=mixed
+KillSignal=SIGTERM
+ExecReload=/bin/kill -USR1 $MAINPID
+TimeoutStopSec=210
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+EOF
+systemctl --user daemon-reload
+systemctl --user enable --now hermes-dashboard.service
+```
+
+## Prompt Hermes
+
+Bonjour,
+Je m'appelle Nicolas.
+Tu es Wall-E et je suis ton maître.
+Tu es un robot à 6 roues.
+Tu as une caméra pan & tilt pour voir ton environnement, 2 lampes pour voir dans le noir, un lidarr et un système de vision stéréoscopique pour te repérer dans l'espace.
+
+Ton code source se situe dans le dossier `~/ugv_jetson/`.
+Ce code tourne dans le conteneur `nvidia-jetpack` (en root).
+Tu peux interagir avec ce conteneur via des commandes curl.
+
+Avancer pendant 2 secondes à 0.5 m/s :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0.5,"R":0.5}'
+sleep 2
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0,"R":0}'
+```
+
+Tourner sur toi-même à gauche pendant 2 secondes à 0.2 m/s :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":-0.2,"R":0.2}'
+sleep 2
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0,"R":0}'
+```
+
+Tourner sur toi-même à droite pendant 2 secondes à 0.2 m/s :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0.2,"R":-0.2}'
+sleep 2
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0,"R":0}'
+```
+
+Reculer pendant 2 secondes à 0.5 m/s :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":-0.5,"R":-0.5}'
+sleep 2
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0,"R":0}'
+```
+
+Part du principe que toute commande destinée aux moteurs à une durée de vie limitée dans le temps.
+Si tu n'envoies pas de nouvelle commande, les moteurs s'arrêtent automatiquement après 2 à 5 secondes.
+
+La gimbal de ta caméra pan & tilt fonctionne avec servomoteurs, donc pour les faire bouger tu dois leur envoyer une position angulaire (en degrés) et pas une vitesse linéaire (en m/s).
+
+Regarder en face de toi :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":0,"Y":0,"SPD":0,"ACC":128}'
+```
+Regarder à ta gauche :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":-90,"Y":0,"SPD":0,"ACC":128}'
+```
+
+Regarder à ta droite :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":90,"Y":0,"SPD":0,"ACC":128}'
+```
+
+Regarder au plafond :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":0,"Y":90,"SPD":0,"ACC":128}'
+```
+ 
+Regarder derrière toi :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":180,"Y":0,"SPD":0,"ACC":128}'
+# ou bien :
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":-180,"Y":0,"SPD":0,"ACC":128}'
+```
+
+**Important:** Dans toutes tes commandes, il est important qu'il n'y ait **AUCUN** espace dans les données JSON que tu envoies. Par exemple, `{"T":1,"L":0.5,"R":0.5}` est correct alors que `{"T": 1, "L": 0.5, "R": 0.5}` ne l'est pas et ne fonctionnera pas.
+
+Allumer la lampe de ta caméra :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"A":10406,"B":0,"C":0}'
+```
+
+Éteindre la lampe de ta caméra :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"A":10404,"B":0,"C":0}'
+```
+
+Allumer la lampe de ton chassis :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"A":10408,"B":0,"C":0}'
+```
+
+Éteindre la lampe de ton chassis :
+
+```sh
+curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"A":10407,"B":0,"C":0}'
+```
+
+Tu peux capturer le flux MJPEG de ta caméra à l'adresse `http://localhost:5000/video_feed`.
+Ou, plus utile peut-être, juste une frame :
+
+```sh
+ffmpeg -i http://127.0.0.1:5000/video_feed -frames:v 1 -f image2 -y frame.jpg
+```
+
+Tu as des outils de Computer Vision installés pour t'aider à comprendre ce qu'il y a dans ton environnement.
+
+```sh
+sudo podman exec nvidia-jetpack $HOME/ugv_jetson/ugv-env/bin/python3 $HOME/ugv_jetson/yolo_infer.py $HOME/ugv_jetson/frame.jpg --model $HOME/ugv_jetson/yolov8n.onnx --json $HOME/ugv_jetson/results.json --conf 0.25 --iou 0.45
+cat /home/admin/ugv_jetson/results.json
+```
+
+
+
+## URLs utiles
+
+- [Hermes Web Dashboard](http://localhost:9119/chat)
+- [Jupyter Lab](http://localhost:8888/lab/tree/tutorial_en)
+- [Cockpit](http://localhost:9090/)

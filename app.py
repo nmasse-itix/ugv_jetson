@@ -46,7 +46,7 @@ import uuid
 import asyncio
 import time
 import logging
-import logging
+import signal
 import cv_ctrl
 import audio_ctrl
 import os_info
@@ -54,6 +54,9 @@ import os_info
 # Get system info
 UPLOAD_FOLDER = thisPath + '/sounds/others'
 si = os_info.SystemInfo()
+
+# Graceful shutdown event — set by signal handlers to stop all loops
+shutdown_event = threading.Event()
 
 # Create a Flask app instance
 app = Flask(__name__)
@@ -135,7 +138,7 @@ def process_cv_info(cmd):
 
 # Function to generate video frames from the camera
 def generate_frames():
-    while True:
+    while not shutdown_event.is_set():
         frame = cvf.frame_process()
         # print(cvf.cv_info())
         try:
@@ -489,7 +492,7 @@ def handle_socket_json(json):
 
 # info update single
 def update_data_websocket_single():
-    # {'T':1001,'L':0,'R':0,'r':0,'p':0,'v': 11,'pan':0,'tilt':0}
+    # {'T':1001,'L':0,'R':0,'r':0,'p':0,'v': 1100,'pan':0,'tilt':0}  # v is in centivolts
     try:
         socket_data = {
             f['fb']['picture_size']:si.pictures_size,
@@ -504,7 +507,7 @@ def update_data_websocket_single():
             f['fb']['detect_react']:cvf.detection_reaction_mode,
             f['fb']['pan_angle']:   cvf.pan_angle,
             f['fb']['tilt_angle']:  cvf.tilt_angle,
-            f['fb']['base_voltage']:base.base_data['v'],
+            f['fb']['base_voltage']:(base.base_data.get('v', 0) / 100.0) if base.base_data else 0,
             f['fb']['video_fps']:   cvf.video_fps,
             f['fb']['cv_movtion_mode']: cvf.cv_movtion_lock,
             f['fb']['base_light']:  base.base_light_status
@@ -518,7 +521,7 @@ def update_data_loop():
     base.base_oled(2, "F/J:5000/8888")
     start_time = time.time()
     time.sleep(1)
-    while 1:
+    while not shutdown_event.is_set():
         update_data_websocket_single()
         eth0 = si.eth0_ip
         wlan = si.wlan_ip
@@ -535,12 +538,12 @@ def update_data_loop():
         minutes = int((elapsed_time % 3600) // 60)
         seconds = int(elapsed_time % 60)
         base.base_oled(3, f"{si.wifi_mode} {hours:02d}:{minutes:02d}:{seconds:02d} {si.wifi_rssi}dBm")
-        time.sleep(5)
+        shutdown_event.wait(5)
 
 def base_data_loop():
     sensor_interval = 1
     sensor_read_time = time.time()
-    while True:
+    while not shutdown_event.is_set():
         cvf.update_base_data(base.feedback_data())
 
         # get sensor data
@@ -548,12 +551,12 @@ def base_data_loop():
             if time.time() - sensor_read_time > sensor_interval:
                 base.rl.read_sensor_data()
                 sensor_read_time = time.time()
-        
+
         # get lidar data
         if base.use_lidar:
             base.rl.lidar_data_recv()
-        
-        time.sleep(0.025)
+
+        shutdown_event.wait(0.025)
 
 @socketio.on('message', namespace='/ctrl')
 def handle_socket_cmd(message):
@@ -611,6 +614,7 @@ if __name__ == "__main__":
         base.gimbal_ctrl(0, 0, 200, 10)
 
     # feedback loop starts
+    si.daemon = True
     si.start()
     si.resume()
     data_update_thread = threading.Thread(target=update_data_loop, daemon=True)
@@ -623,6 +627,16 @@ if __name__ == "__main__":
     # lights off
     base.lights_ctrl(0, 0)
     cmd_on_boot()
+
+    def _shutdown(sig, frame):
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        print(f"\n[app] signal {sig} received, shutting down...")
+        shutdown_event.set()
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
 
     # run the main web app
     socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
