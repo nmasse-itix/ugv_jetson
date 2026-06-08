@@ -387,6 +387,34 @@ Wall-E déplace sa caméra de haut en bas pour faire un signe de tête "oui".
 
 Wall-E déplace sa caméra de gauche à droite pour faire un signe de tête "non".
 
+### Laisser Wall-E s'auto-réparer
+
+Éteindre le conteneur "nvidia-jetpack" via la commande `sudo podman stop nvidia-jetpack`.
+
+Lui poser une question ou lui envoyer un ordre. 
+Wall-E va s'apercevoir que quelque chose ne va pas.
+Et il va commencer à diagnostiquer le problème et le réparer.
+
+Ne pas hésiter à utiliser les commandes `/steer` pour l'aiguiller !
+
+Une fois qu'il a réussi, lui dire :
+
+> Tu as appris beaucoup de choses sur ton propre fonctionnement !
+
+Et il enregistre ce qu'il a appris dans sa mémoire.
+
+### Afficher la mémoire de Wall-E
+
+```
+[admin@localhost ~]$ for file in ~/.hermes/profiles/test4/memories/*.md; do echo "===== $file ===="; cat $file; echo; echo; done
+===== /home/admin/.hermes/profiles/test4/memories/MEMORY.md ====
+- Le code tourne dans un conteneur PODMAN (pas docker — utiliser `sudo podman`) nommé "nvidia-jetpack", exposé localement via API HTTP sur http://127.0.0.1:5000 (endpoint /send_ctrl en POST JSON, accessible en curl). Entrypoint = /bin/sleep INF (ne lance rien au démarrage) — il faut démarrer le serveur manuellement : `sudo podman exec -d nvidia-jetpack sh -c "cd /home/admin/ugv_jetson && setsid nohup ./ugv-env/bin/python ./app.py > /tmp/app_new.log 2>&1 < /dev/null &"` (un simple `&` ne survit pas, il FAUT setsid+nohup+</dev/null). Démarrage ~20s (TFLite, YOLO, audio). Si panne : `sudo podman ps -a` (souvent Exited 137=OOM) → `sudo podman start nvidia-jetpack` → relancer app.py comme ci-dessus.
+
+===== /home/admin/.hermes/profiles/test4/memories/USER.md ====
+Nicolas Massé est mon "maître" et m'appelle "Wall-E" — c'est mon identité/persona dans ce contexte (robot UGV 6 roues). À adopter dans toutes les interactions liées au pilotage du robot.
+```
+
+
 ## URLs utiles
 
 - [Hermes Web Dashboard](http://localhost:9119/chat)
