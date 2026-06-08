@@ -81,23 +81,6 @@ cmd_actions = {
     f['code']['zoom_x2']: lambda: cvf.scale_ctrl(2),
     f['code']['zoom_x4']: lambda: cvf.scale_ctrl(4),
 
-    f['code']['cv_none']: lambda: cvf.set_cv_mode(f['code']['cv_none']),
-    f['code']['cv_moti']: lambda: cvf.set_cv_mode(f['code']['cv_moti']),
-    f['code']['cv_face']: lambda: cvf.set_cv_mode(f['code']['cv_face']),
-    f['code']['cv_objs']: lambda: cvf.set_cv_mode(f['code']['cv_objs']),
-    f['code']['cv_clor']: lambda: cvf.set_cv_mode(f['code']['cv_clor']),
-    f['code']['mp_hand']: lambda: cvf.set_cv_mode(f['code']['mp_hand']),
-    f['code']['cv_auto']: lambda: cvf.set_cv_mode(f['code']['cv_auto']),
-    f['code']['mp_face']: lambda: cvf.set_cv_mode(f['code']['mp_face']),
-    f['code']['mp_pose']: lambda: cvf.set_cv_mode(f['code']['mp_pose']),
-
-    f['code']['re_none']: lambda: cvf.set_detection_reaction(f['code']['re_none']),
-    f['code']['re_capt']: lambda: cvf.set_detection_reaction(f['code']['re_capt']),
-    f['code']['re_reco']: lambda: cvf.set_detection_reaction(f['code']['re_reco']),
-
-    f['code']['mc_lock']: lambda: cvf.set_movtion_lock(True),
-    f['code']['mc_unlo']: lambda: cvf.set_movtion_lock(False),
-
     f['code']['led_off']: lambda: cvf.head_light_ctrl(0),
     f['code']['led_aut']: lambda: cvf.head_light_ctrl(1),
     f['code']['led_ton']: lambda: cvf.head_light_ctrl(2),
@@ -113,24 +96,11 @@ cmd_actions = {
     f['code']['base_ct']: base.base_lights_ctrl
 }
 
-cmd_feedback_actions = [f['code']['cv_none'], f['code']['cv_moti'],
-                        f['code']['cv_face'], f['code']['cv_objs'],
-                        f['code']['cv_clor'], f['code']['mp_hand'],
-                        f['code']['cv_auto'], f['code']['mp_face'],
-                        f['code']['mp_pose'], f['code']['re_none'],
-                        f['code']['re_capt'], f['code']['re_reco'],
-                        f['code']['mc_lock'], f['code']['mc_unlo'],
-                        f['code']['led_off'], f['code']['led_aut'],
+cmd_feedback_actions = [f['code']['led_off'], f['code']['led_aut'],
                         f['code']['led_ton'], f['code']['base_of'],
                         f['code']['base_on'], f['code']['head_ct'],
                         f['code']['base_ct']
                         ]
-
-# cv info process
-def process_cv_info(cmd):
-    if cmd[f['fb']['detect_type']] != f['code']['cv_none']:
-        print(cmd[f['fb']['detect_type']])
-        pass
 
 # Function to generate video frames from the camera
 def generate_frames():
@@ -270,65 +240,6 @@ def cmdline_ctrl(args_string):
         else:
             base.base_json_ctrl({"T":306,"mac":args[1],"dev":0,"b":0,"s":0,"e":0,"h":0,"cmd":3,"megs":' '.join(args[2:])})
 
-    elif args[0] == 'cv':
-        if args[1] == '-r' or args[1] == '--range':
-            try:
-                lower_trimmed = args[2].strip("[]")
-                lower_nums = [int(lower_num) for lower_num in lower_trimmed.split(",")]
-                if all(0 <= num <= 255 for num in lower_nums):
-                    pass
-                else:
-                    return
-            except:
-                return
-            try:
-                upper_trimmed = args[3].strip("[]")
-                upper_nums = [int(upper_num) for upper_num in upper_trimmed.split(",")]
-                if all(0 <= num <= 255 for num in upper_nums):
-                    pass
-                else:
-                    return
-            except:
-                return
-            cvf.change_target_color(lower_nums, upper_nums)
-        elif args[1] == '-s' or args[1] == '--select':
-            cvf.selet_target_color(args[2])
-
-    elif args[0] == 'line':
-        if args[1] == '-r' or args[1] == '--range':
-            try:
-                lower_trimmed = args[2].strip("[]")
-                lower_nums = [int(lower_num) for lower_num in lower_trimmed.split(",")]
-                if all(0 <= num <= 255 for num in lower_nums):
-                    pass
-                else:
-                    return
-            except:
-                return
-            try:
-                upper_trimmed = args[3].strip("[]")
-                upper_nums = [int(upper_num) for upper_num in upper_trimmed.split(",")]
-                if all(0 <= num <= 255 for num in upper_nums):
-                    pass
-                else:
-                    return
-            except:
-                return
-            cvf.change_line_color(lower_nums, upper_nums)
-        elif args[1] == '-s' or args[1] == '--set':
-            if len(args) != 9:
-                return
-            try:
-                for i in range(2,9):
-                    float(args[i])
-            except:
-                return
-            # line -s 0.7 0.8 1.6 0.0006 0.6 0.4 0.2
-            cvf.set_line_track_args(float(args[2]), float(args[3]), float(args[4]), float(args[5]), float(args[6]), float(args[7]), float(args[8]))
-
-    elif args[0] == 'track':
-        cvf.set_pt_track_args(args[1], args[2])
-
     elif args[0] == 'timelapse':
         if args[1] == '-s' or args[1] == '--start':
             if len(args) != 6:
@@ -396,6 +307,22 @@ def handle_command():
         print(f"[app.handle_command] error: {e}")
     return jsonify({"status": "success", "message": "Command received"})
 
+@app.route('/send_ctrl', methods=['POST'])
+def handle_ctrl():
+    try:
+        json_data = request.get_json(force=True)
+        if not json_data:
+            return jsonify({"status": "error", "message": "Invalid JSON"}), 400
+        cmd_a = float(json_data.get("A", 0))
+        if cmd_a in cmd_actions:
+            cmd_actions[cmd_a]()
+        if cmd_a in cmd_feedback_actions:
+            threading.Thread(target=update_data_websocket_single, daemon=True).start()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"[app.handle_ctrl] error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 400
+
 @app.route('/getAudioFiles', methods=['GET'])
 def get_audio_files():
     files = [f for f in os.listdir(UPLOAD_FOLDER) if os.path.isfile(os.path.join(UPLOAD_FOLDER, f)) and (f.endswith('.mp3') or f.endswith('.wav'))]
@@ -452,13 +379,8 @@ def update_data_websocket_single():
             f['fb']['wifi_rssi']:   si.wifi_rssi,
 
             f['fb']['led_mode']:    cvf.cv_light_mode,
-            f['fb']['detect_type']: cvf.cv_mode,
-            f['fb']['detect_react']:cvf.detection_reaction_mode,
-            f['fb']['pan_angle']:   cvf.pan_angle,
-            f['fb']['tilt_angle']:  cvf.tilt_angle,
             f['fb']['base_voltage']:(base.base_data.get('v', 0) / 100.0) if base.base_data else 0,
             f['fb']['video_fps']:   cvf.video_fps,
-            f['fb']['cv_movtion_mode']: cvf.cv_movtion_lock,
             f['fb']['base_light']:  base.base_light_status
         }
         socketio.emit('update', socket_data, namespace='/ctrl')

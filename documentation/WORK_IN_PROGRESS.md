@@ -259,33 +259,33 @@ Tu peux interagir avec ce conteneur via des commandes curl.
 Avancer pendant 2 secondes à 0.5 m/s :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0.5,"R":0.5}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":1,"L":0.5,"R":0.5}'
 sleep 2
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0,"R":0}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":1,"L":0,"R":0}'
 ```
 
 Tourner sur toi-même à gauche pendant 2 secondes à 0.2 m/s :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":-0.2,"R":0.2}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":1,"L":-0.2,"R":0.2}'
 sleep 2
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0,"R":0}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":1,"L":0,"R":0}'
 ```
 
 Tourner sur toi-même à droite pendant 2 secondes à 0.2 m/s :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0.2,"R":-0.2}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":1,"L":0.2,"R":-0.2}'
 sleep 2
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0,"R":0}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":1,"L":0,"R":0}'
 ```
 
 Reculer pendant 2 secondes à 0.5 m/s :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":-0.5,"R":-0.5}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":1,"L":-0.5,"R":-0.5}'
 sleep 2
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":1,"L":0,"R":0}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":1,"L":0,"R":0}'
 ```
 
 Part du principe que toute commande destinée aux moteurs à une durée de vie limitée dans le temps.
@@ -296,78 +296,80 @@ La gimbal de ta caméra pan & tilt fonctionne avec servomoteurs, donc pour les f
 Regarder en face de toi :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":0,"Y":0,"SPD":0,"ACC":128}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":133,"X":0,"Y":0,"SPD":0,"ACC":128}'
 ```
 Regarder à ta gauche :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":-90,"Y":0,"SPD":0,"ACC":128}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":133,"X":-90,"Y":0,"SPD":0,"ACC":128}'
 ```
 
 Regarder à ta droite :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":90,"Y":0,"SPD":0,"ACC":128}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":133,"X":90,"Y":0,"SPD":0,"ACC":128}'
 ```
 
 Regarder au plafond :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":0,"Y":90,"SPD":0,"ACC":128}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":133,"X":0,"Y":90,"SPD":0,"ACC":128}'
 ```
  
 Regarder derrière toi :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":180,"Y":0,"SPD":0,"ACC":128}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":133,"X":180,"Y":0,"SPD":0,"ACC":128}'
 # ou bien :
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"T":133,"X":-180,"Y":0,"SPD":0,"ACC":128}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"T":133,"X":-180,"Y":0,"SPD":0,"ACC":128}'
 ```
-
-**Important:** Dans toutes tes commandes, il est important qu'il n'y ait **AUCUN** espace dans les données JSON que tu envoies. Par exemple, `{"T":1,"L":0.5,"R":0.5}` est correct alors que `{"T": 1, "L": 0.5, "R": 0.5}` ne l'est pas et ne fonctionnera pas.
 
 Allumer la lampe de ta caméra :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"A":10406,"B":0,"C":0}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"A":10406,"B":0,"C":0}'
 ```
 
 Éteindre la lampe de ta caméra :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"A":10404,"B":0,"C":0}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"A":10404,"B":0,"C":0}'
 ```
 
 Allumer la lampe de ton chassis :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"A":10408,"B":0,"C":0}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"A":10408,"B":0,"C":0}'
 ```
 
 Éteindre la lampe de ton chassis :
 
 ```sh
-curl -X POST -v http://127.0.0.1:5000/send_command -d 'command=base -c {"A":10407,"B":0,"C":0}'
+curl -X POST -v http://127.0.0.1:5000/send_ctrl -H 'Content-Type: application/json' -d '{"A":10407,"B":0,"C":0}'
 ```
 
 Tu peux capturer le flux MJPEG de ta caméra à l'adresse `http://localhost:5000/video_feed`.
 Ou, plus utile peut-être, juste une frame :
 
 ```sh
-ffmpeg -i http://127.0.0.1:5000/video_feed -frames:v 1 -f image2 -y frame.jpg
+FRAME="/tmp/frame_$(date +%s%N).jpg" ffmpeg -i http://127.0.0.1:5000/video_feed -frames:v 1 -f image2 -y "$FRAME"
 ```
-
-Tu as des outils de Computer Vision installés pour t'aider à comprendre ce qu'il y a dans ton environnement.
-
-```sh
-sudo podman exec nvidia-jetpack $HOME/ugv_jetson/ugv-env/bin/python3 $HOME/ugv_jetson/yolo_infer.py $HOME/ugv_jetson/frame.jpg --model $HOME/ugv_jetson/yolov8n.onnx --json $HOME/ugv_jetson/results.json --conf 0.25 --iou 0.45
-cat /home/admin/ugv_jetson/results.json
-```
-
-
 
 ## URLs utiles
 
 - [Hermes Web Dashboard](http://localhost:9119/chat)
 - [Jupyter Lab](http://localhost:8888/lab/tree/tutorial_en)
 - [Cockpit](http://localhost:9090/)
+
+## How to get a fresh Hermes agent
+
+```sh
+for svc in $HOME/.config/systemd/user/hermes-*.service; do
+  svc=$(basename $svc)
+  systemctl --user disable --now $svc
+done
+hermes profile create test4
+cp $HOME/.hermes/{.env,config.yaml} $HOME/.hermes/profiles/test4/
+hermes -p test4 gateway install
+```
+

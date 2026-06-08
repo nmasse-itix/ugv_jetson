@@ -1,19 +1,16 @@
 var robot_name, cmd_movition_ctrl, max_speed, slow_speed;
-var cmd_gimbal_ctrl, cmd_gimbal_steady, cmd_arm_ctrl_ui;
-var max_rate, mid_rate, min_rate, arm_default_e, arm_default_r, arm_default_z; 
-var max_res, mid_res, min_res; 
+var cmd_gimbal_ctrl, cmd_arm_ctrl_ui;
+var max_rate, mid_rate, min_rate, arm_default_e, arm_default_r, arm_default_z;
+var max_res, mid_res, min_res;
 var zoom_x1, zoom_x2, zoom_x4;
-var mc_lock, mc_unlo;
-var cv_none, cv_moti, cv_face, cv_objs, cv_clor, mp_hand, cv_auto;
-var mp_face, mp_pose;
-var re_none, re_capt, re_reco, led_off, led_aut, led_ton, base_of, base_on;
+var led_off, led_aut, led_ton, base_of, base_on;
 var head_ct, base_ct;
 var s_panid, release, set_mid, s_tilid;
 var armZ, armR, armE;
 
-var detect_type, led_mode, detect_react, cpu_load;
-var cpu_temp, ram_usage, pan_angle, tilt_angle, wifi_rssi, base_voltage, video_fps;
-var cv_movtion_mode, base_light;
+var led_mode, cpu_load;
+var cpu_temp, ram_usage, wifi_rssi, base_voltage, video_fps;
+var base_light;
 
 fetch('/config')
   .then(response => response.text())
@@ -22,7 +19,6 @@ fetch('/config')
       const yamlObject = jsyaml.load(yamlText);
       console.log(yamlObject);
       cmd_movition_ctrl = yamlObject.cmd_config.cmd_movition_ctrl;
-      cmd_gimbal_steady = yamlObject.cmd_config.cmd_gimbal_steady;
       cmd_gimbal_ctrl = yamlObject.cmd_config.cmd_gimbal_ctrl;
       cmd_arm_ctrl_ui = yamlObject.cmd_config.cmd_arm_ctrl_ui;
 
@@ -36,7 +32,7 @@ fetch('/config')
       arm_default_e = yamlObject.args_config.arm_default_e;
       arm_default_z = yamlObject.args_config.arm_default_z;
       arm_default_r = yamlObject.args_config.arm_default_r;
-      armZ = arm_default_z; 
+      armZ = arm_default_z;
       armR = arm_default_r;
       armE = arm_default_e;
 
@@ -51,22 +47,6 @@ fetch('/config')
       zoom_x2 = yamlObject.code.zoom_x2;
       zoom_x4 = yamlObject.code.zoom_x4;
 
-      mc_lock = yamlObject.code.mc_lock;
-      mc_unlo = yamlObject.code.mc_unlo;
-
-      cv_none = yamlObject.code.cv_none;
-      cv_moti = yamlObject.code.cv_moti;
-      cv_face = yamlObject.code.cv_face;
-      cv_objs = yamlObject.code.cv_objs;
-      cv_clor = yamlObject.code.cv_clor;
-      mp_hand = yamlObject.code.mp_hand;
-      cv_auto = yamlObject.code.cv_auto;
-      mp_face = yamlObject.code.mp_face;
-      mp_pose = yamlObject.code.mp_pose;
-
-      re_none = yamlObject.code.re_none;
-      re_capt = yamlObject.code.re_capt;
-      re_reco = yamlObject.code.re_reco;
       led_off = yamlObject.code.led_off;
       led_aut = yamlObject.code.led_aut;
       led_ton = yamlObject.code.led_ton;
@@ -80,18 +60,13 @@ fetch('/config')
       set_mid = yamlObject.code.set_mid;
       s_tilid = yamlObject.code.s_tilid;
 
-      detect_type = yamlObject.fb.detect_type;
       led_mode    = yamlObject.fb.led_mode;
-      detect_react= yamlObject.fb.detect_react;
       cpu_load    = yamlObject.fb.cpu_load;
       cpu_temp    = yamlObject.fb.cpu_temp;
       ram_usage   = yamlObject.fb.ram_usage;
-      pan_angle   = yamlObject.fb.pan_angle;
-      tilt_angle  = yamlObject.fb.tilt_angle;
       wifi_rssi   = yamlObject.fb.wifi_rssi;
       base_voltage= yamlObject.fb.base_voltage;
       video_fps   = yamlObject.fb.video_fps;
-      cv_movtion_mode = yamlObject.fb.cv_movtion_mode;
       base_light  = yamlObject.fb.base_light;
 
       if (robot_name) {
@@ -113,7 +88,7 @@ listItems.on("click", function () {
     $("#video_pixel_btn_list").css("display", "none");
     setTimeout(function () {
         $("#video_pixel_btn_list").removeAttr("style");
-    }, 10);  
+    }, 10);
 });
 
 //zoom
@@ -122,13 +97,13 @@ $("#zoom_btn").click(function(){
     var zoomNum  = document.getElementById("zoom-num");
     switch(zoomx){
         case 0: cmdSend(zoom_x1,0,0);
-        zoomNum.innerHTML = "1x" 
+        zoomNum.innerHTML = "1x"
         break;
         case 1: cmdSend(zoom_x2,0,0);
-        zoomNum.innerHTML = "2x" 
+        zoomNum.innerHTML = "2x"
         break;
         case 2: cmdSend(zoom_x4,0,0);
-        zoomNum.innerHTML = "4x" 
+        zoomNum.innerHTML = "4x"
         break;
     }
     zoomx = (zoomx + 1) % 3;
@@ -156,7 +131,7 @@ function minifyJoyStick(){
     smallCircle.removeClass("ctrl_stick_l");
     largeCircle.addClass("ctrl_base_s");
     smallCircle.addClass("ctrl_stick_s");
-    
+
 }
 largeCircle.on("click", function(e){
     clearTimeout(minifyTimeout);
@@ -354,20 +329,13 @@ function joyStickCtrl(inputX, inputY) {
         var panScale = document.getElementById("pan_scale");
         panScale.style.transform = `rotate(${-RotateAngle}deg)`;
     } else {
-        if (steady_mode == true) {
-            inputX = 0;
-        }
         var x_cmd = Math.max(-180, Math.min(inputX/2.5, 180));
         var y_cmd = Math.max(-30, Math.min(-inputY/2.5, 90));
 
-        if (steady_mode == false) {
-            var gimbalCmd = {"T":cmd_gimbal_ctrl,"X":inputX/2.5,"Y":-inputY/2.5,"SPD":0,"ACC":128};
-            var elLast = document.getElementById('dbg-last');
-            if (elLast) elLast.textContent = JSON.stringify(gimbalCmd);
-            cmdJsonCmd(gimbalCmd);
-        } else {
-            steadyCtrl(1, inputY);
-        }
+        var gimbalCmd = {"T":cmd_gimbal_ctrl,"X":inputX/2.5,"Y":-inputY/2.5,"SPD":0,"ACC":128};
+        var elLast = document.getElementById('dbg-last');
+        if (elLast) elLast.textContent = JSON.stringify(gimbalCmd);
+        cmdJsonCmd(gimbalCmd);
 
         RotateAngle = document.getElementById("Pan").innerHTML = x_cmd.toFixed(2);
         var panScale = document.getElementById("pan_scale");
@@ -470,10 +438,9 @@ var socket = io('http://' + location.host + '/ctrl');
 socket.emit('request_data');
 
 var light_mode = 0;
-var cv_heartbeat_stop_flag = false;
 socket.on('update', function(data) {
     if (data[base_voltage] != 0) {
-        // console.log(data[detect_react]);
+        // console.log(data);
     } else {
         return;
     }
@@ -485,76 +452,6 @@ socket.on('update', function(data) {
             BButtons[0].classList.add("ctl_btn_active");
         } else if (data[base_light] != 0){
             BButtons[1].classList.add("ctl_btn_active");
-        }
-
-        var advCBtn = document.getElementById("adv_cv_ctrl_btn");
-        var CButtons = advCBtn.getElementsByTagName("button");
-        removeButtonsClass(CButtons);
-
-        var advFBtn = document.getElementById("adv_cv_funcs_btn");
-        var FButtons = advFBtn.getElementsByTagName("button");
-        removeButtonsClass(FButtons);
-
-        var mpBtn = document.getElementById("mp_funcs_btn");
-        var MPButtons = mpBtn.getElementsByTagName("button");
-        removeButtonsClass(MPButtons);
-
-        var dtIco = document.getElementById("DT");
-        var dTypeBtn = document.getElementById("d_type_btn");
-        var DTbuttons = dTypeBtn.getElementsByTagName("button");
-        removeAllIcoClass(dtIco);
-        removeButtonsClass(DTbuttons);
-        if (data[detect_type] == cv_none) {
-            dtIco.classList.add("feed_ico", "feed_ico_none");
-            DTbuttons[0].classList.add("ctl_btn_active");
-        } else if (data[detect_type] == cv_moti) {
-            dtIco.classList.add("feed_ico", "feed_ico_movtion");
-            DTbuttons[1].classList.add("ctl_btn_active");
-        } else if (data[detect_type] == cv_face) {
-            dtIco.classList.add("feed_ico", "feed_ico_face");
-            DTbuttons[2].classList.add("ctl_btn_active");
-        } else if (data[detect_type] == cv_auto) {
-            CButtons[2].classList.add("ctl_btn_active");
-        } else if (data[detect_type] == cv_objs) {
-            FButtons[0].classList.add("ctl_btn_active");
-        } else if (data[detect_type] == cv_clor) {
-            FButtons[1].classList.add("ctl_btn_active");
-        } else if (data[detect_type] == mp_hand) {
-            FButtons[2].classList.add("ctl_btn_active");
-        } else if (data[detect_type] == mp_face) {
-            MPButtons[0].classList.add("ctl_btn_active");
-        } else if (data[detect_type] == mp_pose) {
-            MPButtons[1].classList.add("ctl_btn_active");
-        }
-
-        if (data[detect_type] == cv_auto && cv_heartbeat_stop_flag == false) {
-            cv_heartbeat_stop_flag = true;
-        } else if (cv_heartbeat_stop_flag == true) {
-            cv_heartbeat_stop_flag = false;
-        }
-
-        if (data[cv_movtion_mode] == true) {
-            CButtons[0].classList.add("ctl_btn_active");
-        } else if (data[cv_movtion_mode] == false) {
-            CButtons[1].classList.add("ctl_btn_active");
-        }
-
-        var drIco = document.getElementById("DR");
-        var DReactionBtn = document.getElementById("d_reaction_btn");
-        var DRbuttons = DReactionBtn.getElementsByTagName("button");
-        removeButtonsClass(DRbuttons);
-        if (data[detect_react] == re_none) {
-            removeAllIcoClass(drIco);
-            drIco.classList.add("feed_ico", "feed_ico_none");
-            DRbuttons[0].classList.add("ctl_btn_active");
-        } else if (data[detect_react] == re_capt) {
-            removeAllIcoClass(drIco);
-            drIco.classList.add("feed_ico", "feed_ico_capture");
-            DRbuttons[1].classList.add("ctl_btn_active");
-        } else if (data[detect_react] == re_reco) {
-            removeAllIcoClass(drIco);
-            drIco.classList.add("feed_ico", "feed_ico_record");
-            DRbuttons[2].classList.add("ctl_btn_active");
         }
 
         lightMode = document.getElementById("MODE");
@@ -578,9 +475,9 @@ socket.on('update', function(data) {
         document.getElementById("RAM").innerHTML = data[ram_usage] + "%";
         // document.getElementById("rssi").innerHTML = data[wifi_rssi] + " dBm";
         document.getElementById("fps").innerHTML = data[video_fps].toFixed(1);
-        
+
         document.getElementById("v_in").innerHTML = data[base_voltage].toFixed(1);
-        
+
         var element = document.getElementById("b_state");
         element.classList.remove("baterry_state", "baterry_state1", "baterry_state2", "baterry_state3");
         if (data[base_voltage] >= 10.5) {
@@ -645,26 +542,9 @@ function speedCtrl(inputSpd){
     }
 }
 
-var steady_mode = false;
-function steadyCtrl(inputCmd, inputBias){
-    inputBias = -inputBias*0.4;
-    var steadyCtrlBtn = document.getElementById("steady_ctrl_btn");
-    var steadybuttons = steadyCtrlBtn.getElementsByTagName("button");
-    removeButtonsClass(steadybuttons);
-    if (inputCmd == 0) {
-        steadybuttons[0].classList.add("ctl_btn_active");
-        steady_mode = false;
-        cmdJsonCmd({"T":cmd_gimbal_steady,"s":0,"y":inputBias});
-    } else if (inputCmd == 1) {
-        steadybuttons[1].classList.add("ctl_btn_active");
-        steady_mode = true;
-        cmdJsonCmd({"T":cmd_gimbal_steady,"s":1,"y":inputBias});
-    }
-}
-
 var heartbeat_send_flag = true;
 function heartbeat_send(){
-    if (socketJson.connected && heartbeat_send_flag && !cv_heartbeat_stop_flag) {
+    if (socketJson.connected && heartbeat_send_flag) {
         cmdJsonCmd({'T':cmd_movition_ctrl,'L':heartbeat_left,'R':heartbeat_right});
     }
 }
@@ -765,7 +645,6 @@ function updateMoveButton(key, value) {
 
 
 var keyMap = {
-    67: "c",
     82: 'r',
     69: 'e',
     70: 'f',
@@ -776,13 +655,10 @@ var keyMap = {
     77: 'm',
     74: 'j',
     76: 'l',
-    79: 'o',
     84: 't',
-    85: 'u'
 };
 
 var ctrl_buttons = {
-    c: 0,
     r: 0,
     e: 0,
     f: 0,
@@ -793,9 +669,7 @@ var ctrl_buttons = {
     m: 0,
     j: 0,
     l: 0,
-    o: 0,
     t: 0,
-    u: 0
 };
 
 function updateButton(key, value) {
@@ -842,14 +716,7 @@ function cmdProcess() {
         joyStickCtrl(0, 0);
     }
 
-    // Gimbal/Arm Steady Ctrl
-    if (ctrl_buttons.u == 1){
-        steadyCtrl(0, stickSendY);
-    } else if (ctrl_buttons.o == 1){
-        steadyCtrl(1, stickSendY);
-    } else if (ctrl_buttons.c == 1){
-        lookAhead();
-    } else if (ctrl_buttons.g == 1){
+    if (ctrl_buttons.g == 1){
         cmdJsonCmd({"T":106,"cmd":3.14,"spd":0,"acc":0});
     } else if (ctrl_buttons.t == 1){
         cmdJsonCmd({"T":106,"cmd":1.57,"spd":0,"acc":0});
@@ -886,28 +753,6 @@ document.onkeyup = function (event) {
     }
 }
 
-function lookAhead() {
-    if (module_type == 1) {
-        armZ = arm_default_z; 
-        armR = arm_default_r;
-        armE = arm_default_e;
-        stickLastX = 0;
-        stickLastY = -arm_default_z;
-        stickSendX = 0;
-        stickSendY = -arm_default_z;
-        cmdJsonCmd({"T":cmd_arm_ctrl_ui,"E":armE,"Z":armZ,"R":armR});
-    } else {
-        armZ = arm_default_z; 
-        armR = arm_default_r;
-        armE = arm_default_e;
-        stickLastX = 0;
-        stickLastY = 0;
-        stickSendX = 0;
-        stickSendY = 0;
-        joyStickCtrl(0, 0);
-    }
-}
-
 document.getElementById('sendButton').addEventListener('click', function() {
     var command = document.getElementById('commandInput').value;
     fetch('/send_command', {
@@ -934,8 +779,6 @@ document.getElementById('commandInput').addEventListener('focus', function() {
 document.getElementById('commandInput').addEventListener('blur', function() {
     isInputFocused = false;
 });
-
-
 
 
 
@@ -1085,7 +928,7 @@ function readGamepad() {
             if(gp_pt_x > 180){
                 gp_pt_x = 180;
             }
-          } 
+          }
 
           if(gp.buttons[3].pressed){
             gp_pt_y += gp_pt_speed;
@@ -1201,11 +1044,11 @@ function updateAudioFileList() {
         ol.appendChild(listIterm);
       });
       audioFilesElement.appendChild(ol);
-      
+
     })
     .catch(error => console.error('Error:', error));
 }
-  
+
 // 文件上传函数
 function uploadFiles(files) {
   for (var i = 0; i < files.length; i++) {
