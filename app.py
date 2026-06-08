@@ -313,11 +313,7 @@ def handle_ctrl():
         json_data = request.get_json(force=True)
         if not json_data:
             return jsonify({"status": "error", "message": "Invalid JSON"}), 400
-        cmd_a = float(json_data.get("A", 0))
-        if cmd_a in cmd_actions:
-            cmd_actions[cmd_a]()
-        if cmd_a in cmd_feedback_actions:
-            threading.Thread(target=update_data_websocket_single, daemon=True).start()
+        base.base_json_ctrl(json_data)
         return jsonify({"status": "success"})
     except Exception as e:
         print(f"[app.handle_ctrl] error: {e}")

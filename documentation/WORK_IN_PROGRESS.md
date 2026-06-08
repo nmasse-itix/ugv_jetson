@@ -244,7 +244,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now hermes-dashboard.service
 ```
 
-## Prompt Hermes
+## Prompt Hermes pour l'initialiser
 
 Bonjour,
 Je m'appelle Nicolas.
@@ -354,6 +354,38 @@ Ou, plus utile peut-être, juste une frame :
 ```sh
 FRAME="/tmp/frame_$(date +%s%N).jpg" ffmpeg -i http://127.0.0.1:5000/video_feed -frames:v 1 -f image2 -y "$FRAME"
 ```
+
+Puis, une fois qu'il répond :
+
+> Enregistre ce qu'on s'est dit dans ta mémoire !
+
+## Prompt Hermes pour lui apprendre des tricks
+
+### Trouver la balle
+
+Poser une balle verte et une balle bleue derrière lui. Et lui demander :
+
+> Hé Wall-E, trouve la balle verte !
+
+Wall-E tourne la tête à gauche et à droite pour chercher la balle verte.
+
+### Aller chercher la balle
+
+Poser une balle verte et une balle bleue à 2 mètres devant lui. Et lui demander :
+
+> Hé Wall-E, va chercher la balle verte !
+
+Wall-E avance par étapes pour aller chercher la balle verte. La précision n'est pas extraordinaire. Mais la balle verte est dans le champ de vision.
+
+### Dire oui et non avec la tête
+
+> Hé Wall-E, tu sais dire "oui" avec la tête ?
+
+Wall-E déplace sa caméra de haut en bas pour faire un signe de tête "oui".
+
+> Hé Wall-E, tu sais dire "non" avec la tête ?
+
+Wall-E déplace sa caméra de gauche à droite pour faire un signe de tête "non".
 
 ## URLs utiles
 
