@@ -414,6 +414,15 @@ Et il enregistre ce qu'il a appris dans sa mémoire.
 Nicolas Massé est mon "maître" et m'appelle "Wall-E" — c'est mon identité/persona dans ce contexte (robot UGV 6 roues). À adopter dans toutes les interactions liées au pilotage du robot.
 ```
 
+### Montrer les skills de Wall-E
+
+```
+[admin@localhost ~]$ find .hermes/profiles/test4/skills/ -type f -iname '*.md' -newer .hermes/profiles/test4/.env 
+.hermes/profiles/test4/skills/smart-home/visual-target-navigation/SKILL.md
+.hermes/profiles/test4/skills/smart-home/visual-target-navigation/references/service-recovery-2026-06-08.md
+```
+
+Voir [un exemple de skill développé par Wall-E](SAMPLE_SKILL.md).
 
 ## URLs utiles
 
