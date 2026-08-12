@@ -2,32 +2,179 @@
 
 ## Faire fonctionner la carte son
 
-**Statut : contourné (audio désactivé dans le code)**
+**Statut : RÉSOLU sur RHEL 9.8** (validé bout en bout le 2026-08-12 sur `nmasse@192.168.1.122`, Jetson Orin Nano Developer Kit, kernel `5.14.0-687.5.3.el9_8.aarch64`).
 
-### Problème racine
+> **Réserve** : ce résultat vaut pour une machine **sans** la stack GPU Nvidia. Installer JetPack par la voie RPM rebascule sur le kernel 9.4 et **recasse l'audio** — voir [Cause racine réelle](#cause-racine-réelle-corrigée). La coexistence GPU + audio dépend de l'image bootc `nvidia-jetpack-for-rhel`, dont l'accès est actuellement bloqué (voir plus bas).
 
-Le kernel RHEL 9.4 fourni par Nvidia (`5.14.0-427.42.1.el9_4.aarch64`, paquet `nvidia-jetpack-kmod`) a été compilé avec `CONFIG_SND=not set` : le sous-système audio ALSA est entièrement absent du kernel. Il est donc impossible de charger `snd_usb_audio` par `modprobe`, et PipeWire ne peut énumérer aucun device audio réel — seul le sink virtuel `auto_null` est présent.
+### Ce qui débloque la situation
 
-Le device USB audio (JMTek USB PnP Audio Device, `0c76:1229`) est bien détecté au niveau USB par le kernel, mais sans ALSA il n'est pas exploitable.
+Le dilemme décrit précédemment (« GPU Nvidia **ou** audio, pas les deux ») **ne s'applique pas à ce projet** : le code n'utilise pas le GPU du tout.
 
-### Contrainte Nvidia
+Inventaire complet des imports du projet : `cv2`, `numpy`, `flask`, `flask_socketio`, `aiortc`, `pygame`, `pyttsx3`, `serial`, `netifaces`, `psutil`, `jtop`. Aucun `torch`, `tensorrt`, `pycuda`, ni `mediapipe`. Aucune occurrence de `cv2.dnn`, `setPreferableBackend` / `setPreferableTarget`, ni de la moindre chaîne `cuda`/`CUDA` dans les `.py`. Les modèles présents dans `models/` (MobileNet-SSD Caffe, cascade de Haar) ne sont chargés nulle part — ce sont des reliquats. Le traitement d'image est du OpenCV CPU pur.
 
-Le kernel RHEL 9.8 (`5.14.0-687.12.1.el9_8.aarch64`), lui, dispose du support audio complet (`snd-usb-audio.ko`), mais Nvidia ne fournit pas de modules `nvidia-jetpack-kmod` pour ce kernel. Le repo Nvidia (`https://repo.download.nvidia.com/jetson/rhel-9.4/jp6.1/`) ne couvre que le kernel 9.4. Il n'existe pas encore de repo pour RHEL 9.8 ni pour JetPack 6.2+.
+Conclusion : on abandonne le kernel 9.4 + `nvidia-jetpack-kmod` et on part sur **RHEL 9.8**, dont le kernel embarque ALSA complet. On perd `nvgpu` (le GPU à `17000000.gpu` reste sans driver), ce qui est sans conséquence ici.
 
-On ne peut donc pas avoir simultanément le GPU Nvidia **et** l'audio avec les paquets actuels.
+### Cause racine réelle (corrigée)
 
-### Contournement appliqué
+La version précédente de cette note attribuait l'absence d'ALSA à un kernel « fourni par Nvidia ». **C'est faux, et la nuance est importante.**
 
-`audio_ctrl.py` a été modifié pour vérifier l'existence du sink PulseAudio avant d'appeler `pactl set-default-sink`, évitant le fallback vers `pacmd` (incompatible avec PipeWire). Quand le device USB est absent, `usb_connected = False` et toutes les fonctions audio deviennent des no-ops silencieux.
+Le dépôt L4T ne contient **aucun paquet kernel**. `nvidia-jetpack-kmod` se contente d'exiger le kernel **stock de Red Hat** :
 
-### Pistes de résolution
+```
+$ dnf repoquery --repo=l4t --requires nvidia-jetpack-kmod
+kernel-core = 5.14.0-427.42.1.el9_4
+kernel-modules = 5.14.0-427.42.1.el9_4
+```
 
-1. **Attendre un repo Nvidia pour RHEL 9.8** — solution propre, aucun travail côté noyau. Vérifier périodiquement : `curl -s https://repo.download.nvidia.com/jetson/rhel-9.8/` ou `https://repo.download.nvidia.com/jetson/rhel-9.4/jp6.2/`.
+C'est donc bien Red Hat — et non Nvidia — qui a construit le kernel 9.4 aarch64 sans ALSA. Vérifié en extrayant la config des RPM officiels :
 
-2. **Compiler les modules Nvidia en DKMS pour le kernel 9.8** — récupérer les sources du driver JetPack 6.1 (`nvidia-jetpack-kmod-src` si disponible), les builder via DKMS contre `kernel-devel-5.14.0-687.12.1.el9_8.aarch64`, puis booter sur le kernel 9.8. Complexe mais donne les deux fonctionnalités.
+| Kernel | `CONFIG_SOUND` | `CONFIG_SND` | `CONFIG_SND_USB_AUDIO` |
+|---|---|---|---|
+| `5.14.0-427.42.1.el9_4` (stock RHEL 9.4) | `m` | **not set** | absent |
+| `5.14.0-687.5.3.el9_8` (stock RHEL 9.8) | `m` | `m` | `m` |
 
-3. **Recompiler le kernel 9.4 avec `CONFIG_SND=m`** — nécessite les sources du kernel Nvidia Jetson pour RHEL 9.4 et un build complet (1–2h sur le Jetson). Risque de régression sur le GPU si les patches Nvidia ne s'appliquent pas proprement.
+Autrement dit **Red Hat a activé ALSA entre 9.4 et 9.8**. Aucun rebuild de kernel n'est nécessaire : il suffit de tourner sur le kernel 9.8.
 
+Corollaire à retenir : `nvidia-jetpack-kmod` **épingle en dur** (`=`) le kernel 9.4. Installer JetPack et booter sur ce kernel, c'est réintroduire mécaniquement la panne audio. Les deux exigences sont mutuellement exclusives tant que Nvidia ne publie pas de build pour un kernel ≥ 9.8.
+
+### Le dépôt Nvidia est bien vivant (correction)
+
+Autre affirmation erronée à corriger : le dépôt L4T pour RHEL **n'a pas disparu**. Un `GET` sur le répertoire renvoie 404 uniquement parce que l'indexation est désactivée, et l'index HTML de `repo.download.nvidia.com/jetson/` ne le référence pas — mais le dépôt répond parfaitement :
+
+```
+https://repo.download.nvidia.com/jetson/rhel-9.4/jp6.1/nvidia-l4t.repo      → 200
+https://repo.download.nvidia.com/jetson/rhel-9.4/jp6.1/repodata/repomd.xml  → 200
+https://repo.download.nvidia.com/jetson/jetson_rpm_prod.pub                 → 200
+```
+
+Ne jamais conclure à la mort d'un dépôt sur un 404 de listing : tester `repodata/repomd.xml`.
+
+En revanche, `rhel-9.4/jp6.0`, `jp6.2` et `jp6.2.2` renvoient bien 404 sur `repomd.xml`. Balayage systématique de `rhel-9.{4,5,6,7,8}` × `jp6.{1,2,2.2,3}` / `jp7.{0,1,2}` sur `repodata/repomd.xml` : **une seule combinaison existe, `rhel-9.4/jp6.1`**. La voie RPM est donc définitivement épinglée au kernel 9.4.
+
+### État vérifié du matériel
+
+Le kernel 9.8 charge `snd_usb_audio` automatiquement, sans intervention :
+
+```
+$ cat /proc/asound/cards
+ 0 [Device         ]: USB-Audio - USB PnP Audio Device
+                      Solid State System Co.,Ltd. USB PnP Audio Device at usb-3610000.usb-2.1.1, full
+$ aplay -l   → card 0, device 0 : USB Audio (playback)
+$ arecord -l → card 0, device 0 : USB Audio (capture)
+$ amixer -c 0 scontrols → 'Speaker', 'Mic'
+```
+
+La lecture **et** la capture fonctionnent. La capture exige `-c 2` (le device refuse le mono : `arecord: set_params: Channels count non available`).
+
+### Installation requise
+
+Le kernel suffit côté noyau ; il ne manquait que l'espace utilisateur.
+
+Repos RHEL officiels (système enregistré, Simple Content Access) :
+
+```bash
+sudo subscription-manager repos \
+  --enable=rhel-9-for-aarch64-baseos-rpms \
+  --enable=rhel-9-for-aarch64-appstream-rpms
+```
+
+**Tous les paquets audio nécessaires sont dans `rhel-9-for-aarch64-appstream-rpms`** — y compris `espeak-ng`, qu'on aurait pu croire réservé à EPEL. **EPEL n'est donc pas nécessaire** pour l'audio.
+
+Paquets :
+
+```bash
+sudo dnf install -y alsa-utils espeak-ng
+python3 -m pip install --user pygame pyttsx3
+```
+
+- `alsa-lib` est la seule dépendance stricte à l'exécution (tirée automatiquement) ; `alsa-utils` apporte `aplay`/`amixer`/`alsactl`, utiles pour le volume, le diagnostic et la persistance.
+- `espeak-ng` est nécessaire à `pyttsx3` (il fournit `libespeak-ng.so.1`, que pyttsx3 sait charger).
+- **Le RPM `SDL2` n'est pas nécessaire** : les wheels `pygame` embarquent leur propre SDL (2.28.4) dans `site-packages/pygame.libs/` et ignorent le SDL système. Vérifié en désinstallant `SDL2` — l'audio continue de fonctionner.
+
+Volume réglé puis persisté (`alsa-restore` le recharge au boot) :
+
+```bash
+amixer -c 0 sset Speaker 80% unmute
+amixer -c 0 sset Mic 80% cap
+sudo alsactl store
+```
+
+### Validation effectuée
+
+- `speaker-test -D hw:0,0 -c 2 -t sine -f 440` : OK.
+- `arecord -c 2 -d 2` : signal réel capté (amplitude max 2152, pas du silence).
+- **Lecture simultanée** `aplay` + `espeak-ng` : OK — `dmix` mixe plusieurs clients, donc un effet sonore et la synthèse vocale peuvent se superposer sans se bloquer.
+- `pygame.mixer` en headless, **sans** `SDL_AUDIODRIVER` : SDL détecte ALSA tout seul. Les `.mp3` réels du projet sont lus avec leurs durées correctes (`connected.mp3` 2.01 s, `started.mp3` 2.81 s).
+- `pyttsx3` : synthèse vocale OK.
+- `audio_ctrl.py` importé tel quel : `usb_connected = True`, `play_audio_thread()` et `play_speech_thread()` s'exécutent sans erreur.
+- **Boucle acoustique** (preuve que le son sort réellement du haut-parleur) : enregistrement au micro pendant la lecture d'un 440 Hz. La composante 440 Hz passe de 5114 à 16258 en magnitude FFT (×3,2). L'amplitude brute ne montrait rien car le dongle USB émet un bruit parasite à ~15,4 kHz qui domine le max/RMS.
+
+L'intégralité de ces tests a été rejouée après le basculement sur les paquets RHEL — résultats identiques.
+
+### Horloge (prérequis découvert au passage)
+
+La machine n'avait **ni `chrony` installé ni NTP actif**, et son horloge dérivait d'environ 18 h, ce qui faisait échouer la validation d'entitlement (`The system clock is skewed... Please check your clock settings`). Le Jetson Orin Nano Developer Kit n'a pas de pile RTC : sans NTP, l'horloge repart à zéro à chaque coupure et l'abonnement RHEL casse.
+
+```bash
+sudo dnf install -y chrony && sudo systemctl enable --now chronyd
+```
+
+### Correctif de code
+
+`audio_ctrl.py` appelait `pactl` sans protection au moment de l'import. Sur une install ALSA pure (pas de PulseAudio/PipeWire), `pactl` est absent et `subprocess.run` lève un `FileNotFoundError` non rattrapé — **le module entier échouait à l'import**, ce qui cassait `app.py`. L'appel est désormais protégé par `try/except OSError` et devient un no-op silencieux quand `pactl` n'existe pas.
+
+### Points d'attention connexes (hors périmètre audio, découverts au passage)
+
+Deux blocages à prévoir pour le déploiement complet sur RHEL 9.8, tous deux **confirmés** sur la machine de test :
+
+1. **`os_info.py` : `from jtop import jtop` au niveau module.** L'usage est protégé par un `try/except` dans `get_info_jtop()`, mais pas l'import de tête — `ModuleNotFoundError: No module named 'jtop'` vérifié. `app.py` échouerait donc au démarrage. Correctif simple : `pip install jetson-stats` (wheel pur-python `jetson_stats-7.2.1-py3-none-any.whl`, s'installe sans la stack Nvidia). L'import passe alors, et les appels runtime retombent proprement dans le `except` existant faute de daemon `jtop`.
+
+2. **`netifaces` ne s'installe pas sans compilateur** : pas de wheel aarch64, build depuis les sources → `error: command 'gcc' failed: No such file or directory`. Prévoir `sudo dnf install -y gcc python3-devel` (ou remplacer `netifaces`, non maintenu depuis 2021, par `psutil.net_if_addrs()` qui est déjà une dépendance du projet).
+
+### Voie de sortie : l'image bootc `nvidia-jetpack-for-rhel` (RHEL 9.8)
+
+**C'est la piste qui réconcilie GPU et audio.** Red Hat a mis à jour la solution [access.redhat.com/solutions/7140448](https://access.redhat.com/solutions/7140448), dont l'*Environment* est désormais **« Red Hat Enterprise Linux 9.8 (General availability) »**. JetPack pour RHEL n'est plus livré en RPM mais comme **image bootc** :
+
+```
+registry.redhat.io/rhel9/nvidia-jetpack-for-rhel:latest
+```
+
+Points clés de la solution :
+
+- L'image est « explicitly built on top of `rhel-bootc` », en **image mode** dès l'installation.
+- Installation par Kickstart avec `ostreecontainer --url registry.redhat.io/rhel9/nvidia-jetpack-for-rhel:latest`, ISO préparée via `mkksiso` (paquet `lorax`). Le paramètre kernel `pd_ignore_unused` est toujours requis.
+- Mises à jour par `bootc upgrade` / `bootc switch` — **plus de cycle `dnf update`**.
+- Vérification attendue : `nvidia-smi` → *Driver 540.4.0, CUDA 12.6, GPU Orin (nvgpu)*, plus `tegrastats`. Même génération JetPack que `jp6.1`, mais reconstruite sur 9.8.
+
+#### Statut : BLOQUÉ sur l'accès à l'image (au 2026-08-12)
+
+L'image est **restreinte** : un compte RHN standard ne suffit pas à la tirer. Une demande d'autorisation est en cours en interne chez Red Hat. Tant qu'elle n'aboutit pas, la piste ne peut être ni validée ni écartée.
+
+Ce qui a été tenté, sans succès :
+
+| Tentative | Résultat |
+|---|---|
+| `skopeo inspect docker://registry.redhat.io/rhel9/nvidia-jetpack-for-rhel:latest` (anonyme) | 401 — *Please login to the Red Hat Registry* |
+| API catalogue public, `filter=repository==rhel9/nvidia-jetpack-for-rhel` | `{"data": [], "total": 0}` — non indexée |
+| Recherche d'errata public référençant l'image | Rien ; `RHBA-2026:46821` concerne `nvidia/gpu-driver-rhel9` (GPU discrets), pas le Tegra |
+| Compte RHN du projet | Accès refusé à l'image |
+
+**Question ouverte, décisive** : le NVR exact du kernel embarqué. Si c'est un `5.14.0-687.*.el9_8` (base `rhel-bootc` 9.8), alors `CONFIG_SND=m` et **on obtient GPU + audio simultanément** — le dilemme disparaît. Si Nvidia y a réintroduit un kernel 9.4, on reste au point de départ.
+
+Indice en faveur de la première hypothèse (déduction, pas preuve) : le KB annonce `nvidia-smi` → *Driver 540.4.0 / CUDA 12.6*, soit la même génération que `jp6.1`, mais republiée sur une base 9.8 — ce qui suppose des kmods recompilés contre le kernel 9.8.
+
+À exécuter **dès que l'accès est débloqué** — une seule commande tranche :
+
+```bash
+podman login registry.redhat.io          # Registry Service Account
+podman run --rm registry.redhat.io/rhel9/nvidia-jetpack-for-rhel:latest rpm -q kernel-core
+```
+
+Si la réponse commence par `kernel-core-5.14.0-687` → feu vert, et l'audio survit à l'installation du GPU.
+
+**Conséquence structurante si on bascule** : en image mode, `/usr` est immuable et les `dnf install` ne persistent pas. Les paquets audio (`alsa-utils`, `espeak-ng`) devront passer dans une couche `Containerfile` (`FROM registry.redhat.io/rhel9/nvidia-jetpack-for-rhel:latest` + `RUN dnf -y install ...`). En revanche les `pip install --user` restent valides : `/home`, `/etc` et `/var` sont préservés à travers les upgrades.
+
+**Sans rapport avec le Jetson** : les annonces publiques Red Hat/Nvidia de janvier 2026 (« Day 0 » pour Vera Rubin, drivers OpenRM et CUDA dans les dépôts RHEL) concernent le **datacenter** (Grace-Hopper / Vera Rubin), pas le Tegra. L'image `registry.redhat.io/nvidia/gpu-driver-rhel9` qui en découle est pour GPU discrets. Elle ne nous sert à rien ici.
 
 ## Faire fonctionner l'UART1 du Jetson Orin Nano (pins 8/10 du header 40 pins)
 

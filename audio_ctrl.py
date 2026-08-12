@@ -9,7 +9,13 @@ import pyttsx3
 import subprocess
 
 def set_default_sink(device_name):
-    result = subprocess.run(["pactl", "list", "sinks", "short"], capture_output=True, text=True)
+    # Only meaningful when a PulseAudio/PipeWire server is running. On a pure
+    # ALSA install pactl is absent and SDL/espeak reach the card directly, so
+    # there is nothing to select.
+    try:
+        result = subprocess.run(["pactl", "list", "sinks", "short"], capture_output=True, text=True)
+    except OSError:
+        return
     if device_name in result.stdout:
         subprocess.run(["pactl", "set-default-sink", device_name])
 
