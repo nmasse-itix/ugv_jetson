@@ -4,7 +4,9 @@
 
 **Statut : RÉSOLU sur RHEL 9.8** (validé bout en bout le 2026-08-12 sur `nmasse@192.168.1.122`, Jetson Orin Nano Developer Kit, kernel `5.14.0-687.5.3.el9_8.aarch64`).
 
-> **Réserve** : ce résultat vaut pour une machine **sans** la stack GPU Nvidia. Installer JetPack par la voie RPM rebascule sur le kernel 9.4 et **recasse l'audio** — voir [Cause racine réelle](#cause-racine-réelle-corrigée). La coexistence GPU + audio dépend de l'image bootc `nvidia-jetpack-for-rhel`, dont l'accès est actuellement bloqué (voir plus bas).
+> **Réserve** : ce résultat vaut pour une machine **sans** la stack GPU Nvidia. Installer JetPack par la **voie RPM** rebascule sur le kernel 9.4 et **recasse l'audio** — voir [Cause racine réelle](#cause-racine-réelle-corrigée).
+>
+> En revanche, la **voie bootc** (JetPack 6.2.2 sur kernel 9.8) fait coexister GPU et audio : vérifié dans l'image, voir [Voie de sortie](#voie-de-sortie--limage-bootc-nvidia-jetpack-for-rhel-rhel-98).
 
 ### Ce qui débloque la situation
 
@@ -35,7 +37,9 @@ C'est donc bien Red Hat — et non Nvidia — qui a construit le kernel 9.4 aarc
 
 Autrement dit **Red Hat a activé ALSA entre 9.4 et 9.8**. Aucun rebuild de kernel n'est nécessaire : il suffit de tourner sur le kernel 9.8.
 
-Corollaire à retenir : `nvidia-jetpack-kmod` **épingle en dur** (`=`) le kernel 9.4. Installer JetPack et booter sur ce kernel, c'est réintroduire mécaniquement la panne audio. Les deux exigences sont mutuellement exclusives tant que Nvidia ne publie pas de build pour un kernel ≥ 9.8.
+Corollaire à retenir : `nvidia-jetpack-kmod` **épingle en dur** (`=`) le kernel 9.4. Installer JetPack **par la voie RPM** et booter sur ce kernel, c'est réintroduire mécaniquement la panne audio.
+
+Cette exclusion mutuelle n'est cependant vraie **que pour la voie RPM**. Nvidia a depuis publié des kmods recompilés contre le kernel 9.8, livrés par image bootc — ce qui lève le dilemme (voir [Voie de sortie](#voie-de-sortie--limage-bootc-nvidia-jetpack-for-rhel-rhel-98)).
 
 ### Le dépôt Nvidia est bien vivant (correction)
 
@@ -146,31 +150,56 @@ Points clés de la solution :
 - Mises à jour par `bootc upgrade` / `bootc switch` — **plus de cycle `dnf update`**.
 - Vérification attendue : `nvidia-smi` → *Driver 540.4.0, CUDA 12.6, GPU Orin (nvgpu)*, plus `tegrastats`. Même génération JetPack que `jp6.1`, mais reconstruite sur 9.8.
 
-#### Statut : BLOQUÉ sur l'accès à l'image (au 2026-08-12)
+#### Statut : VALIDÉ sur la pré-version (2026-08-12) — GPU et audio coexistent
 
-L'image est **restreinte** : un compte RHN standard ne suffit pas à la tirer. Une demande d'autorisation est en cours en interne chez Red Hat. Tant qu'elle n'aboutit pas, la piste ne peut être ni validée ni écartée.
+L'image officielle `registry.redhat.io/rhel9/nvidia-jetpack-for-rhel` **n'est pas encore publiée** (401 même avec un compte RHN, absente du catalogue public). Une **pré-version publiquement accessible** est en revanche disponible :
 
-Ce qui a été tenté, sans succès :
-
-| Tentative | Résultat |
-|---|---|
-| `skopeo inspect docker://registry.redhat.io/rhel9/nvidia-jetpack-for-rhel:latest` (anonyme) | 401 — *Please login to the Red Hat Registry* |
-| API catalogue public, `filter=repository==rhel9/nvidia-jetpack-for-rhel` | `{"data": [], "total": 0}` — non indexée |
-| Recherche d'errata public référençant l'image | Rien ; `RHBA-2026:46821` concerne `nvidia/gpu-driver-rhel9` (GPU discrets), pas le Tegra |
-| Compte RHN du projet | Accès refusé à l'image |
-
-**Question ouverte, décisive** : le NVR exact du kernel embarqué. Si c'est un `5.14.0-687.*.el9_8` (base `rhel-bootc` 9.8), alors `CONFIG_SND=m` et **on obtient GPU + audio simultanément** — le dilemme disparaît. Si Nvidia y a réintroduit un kernel 9.4, on reste au point de départ.
-
-Indice en faveur de la première hypothèse (déduction, pas preuve) : le KB annonce `nvidia-smi` → *Driver 540.4.0 / CUDA 12.6*, soit la même génération que `jp6.1`, mais republiée sur une base 9.8 — ce qui suppose des kmods recompilés contre le kernel 9.8.
-
-À exécuter **dès que l'accès est débloqué** — une seule commande tranche :
-
-```bash
-podman login registry.redhat.io          # Registry Service Account
-podman run --rm registry.redhat.io/rhel9/nvidia-jetpack-for-rhel:latest rpm -q kernel-core
+```
+quay.io/redhat-user-workloads/jetpack-for-rhel-tenant/rhel-98-bootc:latest
+digest sha256:cdb9b57b87cf4e1c95077f60f80b6207ea0f611d3857bb819707df4425d5f1bd
 ```
 
-Si la réponse commence par `kernel-core-5.14.0-687` → feu vert, et l'audio survit à l'installation du GPU.
+Labels de l'image (construite le 2026-08-11, `arm64`) :
+
+| Label | Valeur |
+|---|---|
+| `kernel_version` | **5.14.0-687.31.1** (série 9.8) |
+| `jetpack_version` | **6.2.2** (plus récent que le `jp6.1` de la voie RPM) |
+| `redhat.version-id` | 9.8 |
+| `com.redhat.component` | `rhel-bootc-component` |
+| `vcs-url` | https://gitlab.com/redhat/rhel/sst/orin-sidecar/rhel-jetpack-for-jetson-bootc |
+
+**Vérifié dans l'image, pas déduit :**
+
+- `rpm -q kernel-core` → `kernel-core-5.14.0-687.31.1.el9_8` — bien un kernel 9.8.
+- Config de ce NVR exact (extraite du RPM officiel) : `CONFIG_SND=m`, `CONFIG_SND_USB=y`, **`CONFIG_SND_USB_AUDIO=m`**.
+- Modules réellement présents : `sound/usb/snd-usb-audio.ko.xz` et `sound/core/snd-pcm.ko.xz`…
+- …**à côté de** `extra/drivers/gpu/nvgpu/nvgpu.ko`.
+- Stack JetPack complète : 26 paquets `nvidia-*`, dont `nvidia-jetpack-for-rhel-9.8-kmod-6.2.2_5.14.0_687.31.1`, explicitement construit contre ce kernel 9.8.
+
+**Conclusion : le dilemme « GPU ou audio » est levé.** Les deux tiennent dans la même image, parce que Nvidia a recompilé ses kmods contre le kernel 9.8 (celui qui a ALSA) au lieu de rester épinglé au 9.4.
+
+⚠️ **Réserve importante** : `redhat-user-workloads` est l'espace de noms CI (Konflux) de Red Hat. Cette image est une **pré-version non supportée**, ses tags sont des builds éphémères. Pour tout usage reproductible, épingler le digest ci-dessus plutôt que `:latest`, et rebasculer sur l'image officielle dès sa publication.
+
+#### Ce que l'image contient déjà, et ce qu'il faudra ajouter
+
+| Paquet | Dans l'image | Remarque |
+|---|---|---|
+| `alsa-lib`, `alsa-utils` | ✅ | rien à faire |
+| `pipewire` 1.4.11, `pipewire-alsa`, `wireplumber` | ✅ | — |
+| `pipewire-pulse`, `pulseaudio-utils` | ❌ | donc **pas de `pactl`** → le correctif de `audio_ctrl.py` est indispensable ici |
+| `espeak-ng` | ❌ | requis par `pyttsx3` |
+| `python3-pip` | ❌ | requis pour `pygame`/`pyttsx3` |
+| `podman`, `chrony` | ✅ | Python 3.9.25 |
+
+D'où la couche applicative à prévoir :
+
+```dockerfile
+FROM quay.io/redhat-user-workloads/jetpack-for-rhel-tenant/rhel-98-bootc@sha256:cdb9b57b...
+RUN dnf -y install espeak-ng python3-pip && dnf clean all
+```
+
+`pygame` et `pyttsx3` restent installables par `pip install --user` (préservé dans `/home`).
 
 **Conséquence structurante si on bascule** : en image mode, `/usr` est immuable et les `dnf install` ne persistent pas. Les paquets audio (`alsa-utils`, `espeak-ng`) devront passer dans une couche `Containerfile` (`FROM registry.redhat.io/rhel9/nvidia-jetpack-for-rhel:latest` + `RUN dnf -y install ...`). En revanche les `pip install --user` restent valides : `/home`, `/etc` et `/var` sont préservés à travers les upgrades.
 
