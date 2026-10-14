@@ -37,6 +37,8 @@ ssh root@pikvm.itix.fr kvmd-otgmsd --eject    # TOUT DE SUITE après l'install
 
 Le kickstart crée `admin` (mot de passe `redhat`, à changer) en **uid 1001**. L'uid 1000 est pris par l'utilisateur `flightctl` que crée le RPM de l'agent, et le quadlet a besoin d'un uid fixe pour `/run/user/1001/pulse`. `admin` est ajouté à `video`, `render`, `dialout`, `audio` et `jtop` (gid épinglé à 950). Ces groupes vivent dans `/usr/lib/group` en mode image : le `%post` les recopie dans `/etc/group` avant le `usermod`. Le kickstart active aussi le *linger* d'admin, pour que PipeWire tourne dès le boot, et clone ce dépôt dans `/var/home/admin/ugv_jetson`.
 
+Pas de pare-feu, comme dans la procédure d'origine : `firewalld` est **masqué** dans l'image. Un simple `disable` ne suffit pas, car systemd ré-applique ses *presets* (`enable firewalld.service`) au premier boot, et le robot démarrait avec seulement SSH et Cockpit ouverts : l'app (:5000), Jupyter (:8888) et Hermes (:9119) étaient injoignables. Sur un robot installé avant ce correctif : `sudo systemctl disable --now firewalld && sudo systemctl mask firewalld`.
+
 SSH : `root` par clé (`/etc/ssh/authorized_keys/root.keys`, dans l'image). `admin` n'a pas de clé.
 
 ### Mode texte : le mode graphique est mis de côté

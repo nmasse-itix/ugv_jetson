@@ -82,9 +82,13 @@ grep -q 'mdns4_minimal' /etc/nsswitch.conf
 
 systemctl enable cockpit.socket sshd.service bluetooth.service
 
-# The base ships no firewalld; if a base bump brings one, keep the demo reachable.
+# No firewall, as in the original procedure: the demo serves :5000 (app),
+# :8888 (Jupyter) and :9119 (Hermes). firewalld arrives as a dependency of the
+# desktop, and a plain "disable" is undone on first boot, when systemd applies
+# the presets ("enable firewalld.service"): the node came up with only ssh and
+# cockpit open (2026-10-14). Mask it, which presets do not touch.
 if rpm -q firewalld >/dev/null 2>&1; then
-  systemctl disable firewalld.service
+  systemctl mask firewalld.service
 fi
 
 # Text mode. KDE and sddm stay installed but are NOT started: starting Xorg with
