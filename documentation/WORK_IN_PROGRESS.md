@@ -362,6 +362,25 @@ auxiliary:
 
 Le skill Hermes `tools/hermes-skills/walle-visual-servo/SKILL.md` décrit l'outil et la boucle « une phrase d'observation, puis une commande ». Pour l'installer, copier le dossier dans `~/.hermes/skills/robotics/`.
 
+### Profil `vllm-qwen` : Qwen3.5-9B auto-hébergé (démo du 2026-10-15)
+
+`vllm-qwen` est un **template**. On ne l'utilise pas directement, on le clone avant chaque essai :
+
+```sh
+hermes profile create test-$(date +%+4Y%m%d%H%M%S) --clone-from vllm-qwen
+```
+
+Il est cloné du profil par défaut, avec ces différences dans `~/.hermes/profiles/vllm-qwen/config.yaml` :
+
+- `model` : `default: qwen3.5-9b`, `provider: itix-litellm`, `context_length: 131072` ;
+- `providers.itix-litellm` : `base_url: https://litellm.itix.fr/v1` (LiteLLM devant vLLM). La clé est lue au moment de la requête par `key_cmd: "cat /var/home/admin/demo-qwen3.5-9b.key"` (fichier `0600`). Elle n'est jamais écrite dans `config.yaml` ni dans `.env`, donc un clone copie un chemin et pas un secret ;
+- réflexion **coupée** (`extra_body.chat_template_kwargs.enable_thinking: false`, `temperature 0.7`, `top_p 0.8`, les valeurs de la fiche du modèle sans réflexion). **Piège :** le `extra_body` du provider ne s'applique qu'au modèle principal. Les tâches auxiliaires (`auxiliary.vision`, `compression`, `title_generation`) ont chacune le leur. Sans ça, la vision tourne avec la réflexion et dépasse le timeout : plus de 300 s par image au lieu d'environ 35 s ;
+- la vision passe aussi par Qwen (`auxiliary.vision`, timeout 120 s), et le résultat revient en texte (`image_input_mode: text`).
+
+Mesuré le 2026-10-14 sur un clone : environ 10 s par appel du modèle principal (environ 10 000 jetons d'entrée), environ 75 s pour une analyse d'image, et 2 min pour « prends une image avec `look.sh` et dis où est le lit ».
+
+Le modèle est **temporaire** : retiré le 2026-10-15 au soir, et la clé expire le 2026-10-16 à 00:02 UTC. URL, nom du modèle et chemin de la clé sont regroupés dans ce bloc. Après la démo, supprimer le profil (`hermes profile delete vllm-qwen`) et `~/demo-qwen3.5-9b.key`.
+
 ## Prompt Hermes pour l'initialiser
 
 Bonjour,
