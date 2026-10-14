@@ -74,8 +74,12 @@ sudo systemctl restart nvidia-jetpack     # après une modification du code
 ```sh
 flightctl apply -f flightctl/repositories.yaml
 sed "s/__OS_TAG__/<tag>/" flightctl/fleets.yaml | flightctl apply -f -
-# approuver l'enrôlement du device, puis lui poser le label demo=ugv-jetson
+# approuver l'enrôlement du device, puis lui poser le label demo=ugv-jetson :
+# flightctl get device/<name> -o yaml, ajouter le label sous metadata.labels,
+# retirer status/annotations/resourceVersion, puis flightctl apply -f
 ```
+
+Robot-b (2026-10-14) : device `v5g3c9njg69nnsk8inbrf82sqk1b12hg46kujaockcc7v4pblf7g`, alias `ugv_jetson`. Son ancien enregistrement « Robot-B » est resté dans la Fleet RAF `ugv-rover`, orphelin.
 
 La Fleet livre le quadlet depuis ce dépôt git (`/flightctl/apps/ugv-demo/`), avec un hook `afterupdating` qui fait `daemon-reload` + `restart`. Elle fixe aussi l'image OS. Pour mettre l'OS à jour, il suffit de changer le tag dans la Fleet. Le dépôt GitHub doit contenir les commits pour que Flight Control les voie.
 
@@ -284,9 +288,9 @@ sudo podman exec -it nvidia-jetpack /bin/bash
 
 ## Déploiement de Hermes
 
+Sur RHEL 9.8 bootc, `ripgrep`, `ffmpeg`, `git` et `libatomic` sont déjà dans l'image : plus de `dnf`. Tout s'installe dans le home d'`admin` (`/var/home/admin`, inscriptible), et les services utilisateur tournent dès le boot grâce au *linger* posé par le kickstart. En tant qu'`admin` (`sudo -u admin -i` depuis root) :
+
 ```sh
-sudo dnf install -y https://download1.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-9.noarch.rpm
-sudo dnf install --allow-erasing -y ripgrep ffmpeg
 curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
 hermes gateway install
 uv pip install --python ~/.hermes/hermes-agent/venv/bin/python -e ~/.hermes/hermes-agent'[web,pty]'
