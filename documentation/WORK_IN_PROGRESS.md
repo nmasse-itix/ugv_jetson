@@ -346,6 +346,22 @@ agent:
 
 puis `systemctl --user restart hermes-gateway`.
 
+### Gemini 4 Argon : voir avec Argon et asservir la caméra
+
+Pour qu'Argon voie lui-même les images, et pas un modèle auxiliaire par défaut (Gemini 3 Flash), ajouter ceci dans `~/.hermes/config.yaml` :
+
+```yaml
+auxiliary:
+  vision:
+    provider: "openrouter"
+    model: "google/gemini-4-argon"
+    timeout: 60
+```
+
+`tools/look.sh [PAN TILT]` oriente la gimbal, capture une image **fraîche** (le flux MJPEG renvoie d'abord une image de la position précédente) et lui superpose une grille étiquetée en **angles absolus de gimbal** : `P` (pan) en jaune, `T` (tilt) en cyan, et une croix rouge sur la visée. Pour centrer un objet, il suffit de relire les étiquettes et de renvoyer ces angles. L'échelle, environ 5,7 px/°, a été mesurée sur robot-b par corrélation de phase. La caméra est un fisheye : l'échelle est fiable au centre et approximative sur les bords, d'où un asservissement par itérations.
+
+Le skill Hermes `tools/hermes-skills/walle-visual-servo/SKILL.md` décrit l'outil et la boucle « une phrase d'observation, puis une commande ». Pour l'installer, copier le dossier dans `~/.hermes/skills/robotics/`.
+
 ## Prompt Hermes pour l'initialiser
 
 Bonjour,
