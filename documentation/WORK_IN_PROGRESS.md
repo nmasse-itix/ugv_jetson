@@ -1,6 +1,85 @@
 # Démo Robotique UGV Jetson
 
-## Installation de RHEL 9.4
+## RHEL 9.8 en mode image (bootc), géré par Flight Control
+
+C'est la procédure actuelle. Les sections « RHEL 9.4 » plus bas sont l'ancienne installation à la main, gardées pour mémoire : tout ce qu'elles faisaient est désormais dans une image OS, une image applicative et un quadlet.
+
+| Élément | Où | Rôle |
+|---|---|---|
+| `os/` | `quay.io/robotic-agent-fleet-demo/ugv-jetson/os` | Image bootc RHEL 9.8 + JetPack 6.2.2 (kernel 9.8 : GPU **et** audio), dérivée de `robotic-agent-fleet/os` |
+| `app/` | `quay.io/robotic-agent-fleet-demo/ugv-jetson/app` | L'ancien conteneur `nvidia-jetpack` (`l4t-jetpack:r36.3.0`, `setup.sh`, ultralytics, onnxruntime-gpu, yolov8n.onnx), construit au lieu d'un `podman commit` |
+| `flightctl/` | Flight Control | Le quadlet `nvidia-jetpack.container` et la Fleet `ugv-jetson` |
+
+Base de l'image OS : `quay.io/redhat-user-workloads/jetpack-for-rhel-tenant/rhel-98-bootc:6.2.2_5.14.0-687.31.1_081326173221`.
+
+### Construire
+
+Sur l'hôte de build aarch64 (`ssh nicolas@dev-rhel10.itix.fr`, dans `~/ugv_jetson`) :
+
+```sh
+sudo ./app/build.sh                 # image applicative -> ugv-jetson/app:<timestamp> + :latest
+cd os && sudo ./build.sh            # image OS + ISO d'installation hors-ligne
+sudo SKIP_ISO=1 ./build.sh          # image OS seule (mise à jour via Flight Control)
+```
+
+Prérequis dans `os/` (hors git) : `flightctl-config.yaml` (certificat d'enrôlement, copié depuis `flightctl.itix.fr`), `wifi/*.nmconnection`, `rhel-9.8-aarch64-boot.iso`. L'ISO contient la clé d'enrôlement et le secret de pull : elle n'est **pas** poussée sur quay, elle part directement sur le PiKVM.
+
+### Installer
+
+```sh
+PIKVM=pikvm.itix.fr ./push-to-pikvm.sh
+ssh root@pikvm.itix.fr kvmd-otgmsd --set-cdrom 1 --set-rw 0 --set-image /var/lib/kvmd/msd/ugv-jetson-<tag>.iso
+# reboot du Jetson : il démarre tout seul sur le CD virtuel, l'installation est sans surveillance (~5 min)
+ssh root@pikvm.itix.fr kvmd-otgmsd --eject    # TOUT DE SUITE après l'install
+```
+
+**Éjecter l'ISO dès que l'installation est finie.** Le firmware du Jetson démarre le média amovible *avant* le NVMe : tant que l'ISO est attachée, chaque reboot réinstalle la machine.
+
+Le kickstart crée `admin` (mot de passe `redhat`, à changer) en **uid 1001**. L'uid 1000 est pris par l'utilisateur `flightctl` que crée le RPM de l'agent, et le quadlet a besoin d'un uid fixe pour `/run/user/1001/pulse`. `admin` est ajouté à `video`, `render`, `dialout`, `audio` et `jtop` (gid épinglé à 950). Ces groupes vivent dans `/usr/lib/group` en mode image : le `%post` les recopie dans `/etc/group` avant le `usermod`. Le kickstart active aussi le *linger* d'admin, pour que PipeWire tourne dès le boot, et clone ce dépôt dans `/var/home/admin/ugv_jetson`.
+
+SSH : `root` par clé (`/etc/ssh/authorized_keys/root.keys`, dans l'image). `admin` n'a pas de clé.
+
+### Mode texte : le mode graphique est mis de côté
+
+KDE, sddm, chromium et rustdesk sont **installés mais désactivés** : l'image démarre en `multi-user.target`.
+
+Constaté le 2026-10-14 sur robot-b : dès que `graphical.target` démarre sddm, **le Jetson redémarre instantanément**. Xorg charge le pilote `nvidia` de Tegra (`/etc/X11/xorg.conf`, fourni par `nvidia-jetpack-for-rhel-9.8-x11-6.2.2`). `/var/log/Xorg.0.log` reste à 0 octet : la machine est réinitialisée avant même la première ligne de log. Il n'y a rien dans pstore, et le journal est volatile (aucune trace du boot précédent). Faute de temps avant la démo, on n'a pas creusé.
+
+Pistes pour plus tard :
+- essayer le pilote `modesetting` au lieu de `nvidia` (surcharger `/etc/X11/xorg.conf`) ;
+- rendre le journal persistant (`/var/log/journal`) et brancher la console série `ttyTCU0` pour capturer le reset ;
+- relancer à la main avec `systemctl isolate graphical.target`, **jamais** en `set-default`, pour garder un reboot de secours.
+
+Effet de bord à connaître : en mode texte, Anaconda pointe de lui-même `/etc/systemd/system/default.target` sur `multi-user.target`, ce qui masque le défaut de l'image. Si on réactive le mode graphique, il faudra aussi supprimer ce lien dans le `%post`.
+
+### La démo : `nvidia-jetpack.service`
+
+Le conteneur est un quadlet (`flightctl/apps/ugv-demo/etc/containers/systemd/nvidia-jetpack.container`). Il démarre `app.py` (:5000) et Jupyter Lab (:8888) tout seul : plus de `sleep INF` ni de `podman exec` pour lancer l'app.
+
+```sh
+sudo systemctl status nvidia-jetpack
+sudo podman logs -f nvidia-jetpack
+sudo podman exec -it nvidia-jetpack bash
+sudo systemctl restart nvidia-jetpack     # après une modification du code
+```
+
+- Le code n'est **pas** dans l'image. C'est le clone git de l'hôte, `/var/home/admin/ugv_jetson`, monté sur `/home/admin/ugv_jetson`. Le virtualenv est dans l'image (`/opt/ugv-env`), et l'entrypoint le relie en `ugv_jetson/ugv-env`, donc `~/ugv_jetson/ugv-env/bin/python` marche toujours dans le conteneur.
+- Le conteneur tourne en `admin` (uid 1001) avec les groupes de l'hôte passés par numéro.
+- Audio : par le PipeWire d'admin (protocole pulse), `PULSE_SERVER=unix:/run/user/1001/pulse/native`.
+- Port série de la carte ESP32 : `UGV_BASE_PORT=/dev/ugv-base`. C'est un lien udev livré par l'image (`os/root/usr/lib/udev/rules.d/99-ugv-serial.rules`) vers `ttyTHS1` sur robot-b. `app.py` garde `/dev/ttyUSB0` par défaut.
+- Démo d'auto-réparation Hermes : couper avec `sudo systemctl stop nvidia-jetpack`. Un simple `podman stop` est relancé aussitôt par systemd (`Restart=on-failure`).
+
+### Flight Control
+
+```sh
+flightctl apply -f flightctl/repositories.yaml
+sed "s/__OS_TAG__/<tag>/" flightctl/fleets.yaml | flightctl apply -f -
+# approuver l'enrôlement du device, puis lui poser le label demo=ugv-jetson
+```
+
+La Fleet livre le quadlet depuis ce dépôt git (`/flightctl/apps/ugv-demo/`), avec un hook `afterupdating` qui fait `daemon-reload` + `restart`. Elle fixe aussi l'image OS. Pour mettre l'OS à jour, il suffit de changer le tag dans la Fleet. Le dépôt GitHub doit contenir les commits pour que Flight Control les voie.
+
+## Installation de RHEL 9.4 (historique)
 
 [Install Red Hat Device Edge on NVIDIA Jetson Orin and IGX Orin](https://developers.redhat.com/learn/rhel/install-red-hat-device-edge-nvidia-jetson-orin-and-igx-orin)
 

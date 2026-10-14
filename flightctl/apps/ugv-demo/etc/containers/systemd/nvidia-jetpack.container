@@ -1,0 +1,64 @@
+# The UGV demo: app.py (:5000) and Jupyter Lab (:8888), in the JetPack container.
+#
+# Replaces the hand-typed "podman run" of documentation/WORK_IN_PROGRESS.md.
+# Delivered by Flight Control from git (flightctl/fleets.yaml).
+# The source code is the host's git clone in /var/home/admin/ugv_jetson,
+# bind-mounted at the same place as before (/home/admin/ugv_jetson), so it can
+# be edited live; a code change is a "systemctl restart nvidia-jetpack".
+#
+#     systemctl status nvidia-jetpack
+#     podman logs -f nvidia-jetpack
+#     podman exec -it nvidia-jetpack bash
+#
+# To break it on purpose for the Hermes self-repair demo, use
+# "sudo systemctl stop nvidia-jetpack": a bare "podman stop" exits non-zero and
+# systemd brings the container back right away.
+
+[Unit]
+Description=UGV demo (app.py + Jupyter Lab) in the JetPack container
+After=network-online.target jtop.service user@1001.service
+Wants=network-online.target jtop.service user@1001.service
+
+[Container]
+ContainerName=nvidia-jetpack
+Image=quay.io/robotic-agent-fleet-demo/ugv-jetson/app:20261014111832
+Network=host
+AddDevice=nvidia.com/gpu=all
+# Privileged with the whole /dev: the serial ports, the GPU nodes and any USB
+# camera plugged in after start. cgroups are disabled because podman fails at
+# inserting the device filter eBPF program on this kernel; labels are disabled
+# because they prevent the container from reaching the GPU.
+Volume=/dev:/dev
+SecurityLabelDisable=true
+PodmanArgs=--privileged --cgroups=disabled
+# The image runs as admin (uid 1001, as on the host). Give it the host groups
+# that own the devices: video, render, dialout, audio, and jtop (pinned in
+# os/root/usr/lib/sysusers.d/raf-jtop.conf).
+GroupAdd=39
+GroupAdd=105
+GroupAdd=18
+GroupAdd=63
+GroupAdd=950
+# Source code.
+Volume=/var/home/admin/ugv_jetson:/home/admin/ugv_jetson
+# Audio goes through admin's PipeWire (pulse protocol), which lingering keeps
+# running from boot. The directory, not the socket file, so a PipeWire restart
+# does not leave a stale bind mount behind.
+Volume=/run/user/1001/pulse:/run/user/1001/pulse
+Environment=PULSE_SERVER=unix:/run/user/1001/pulse/native
+# jtop.service (Jetson stats daemon) on the host.
+Volume=/run/jtop.sock:/run/jtop.sock
+# The ESP32 driver board, by function rather than by kernel name (udev rule).
+Environment=UGV_BASE_PORT=/dev/ugv-base
+Environment=PYTHONUNBUFFERED=1
+
+[Service]
+# Wait for admin's pulse socket: it appears once the user manager has started.
+ExecStartPre=/bin/sh -c 'for i in $(seq 60); do [ -S /run/user/1001/pulse/native ] && exit 0; sleep 2; done; echo "no pulse socket" >&2; exit 1'
+Restart=on-failure
+RestartSec=10
+# The first start pulls a ~13 GB image.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

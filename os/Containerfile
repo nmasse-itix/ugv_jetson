@@ -1,0 +1,119 @@
+FROM quay.io/redhat-user-workloads/jetpack-for-rhel-tenant/rhel-98-bootc:6.2.2_5.14.0-687.31.1_081326173221
+
+# Derived from robotic-agent-fleet/os/Containerfile: same base, same fixes for the
+# Jetson in image mode (clock, jtop, nvpmodel, kfence, avahi). On top of it, what
+# documentation/WORK_IN_PROGRESS.md used to install by hand on the 9.4 node:
+# desktop, cockpit, remote access and the demo tooling.
+
+RUN <<EOF
+set -Eeuo pipefail
+
+## Repositories
+dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E '%{rhel}').noarch.rpm
+# ffmpeg (Hermes grabs camera frames with it) only lives in RPM Fusion.
+dnf install -y https://download1.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E '%{rhel}').noarch.rpm \
+               https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E '%{rhel}').noarch.rpm
+cat > /etc/yum.repos.d/flightctl.repo <<'REPO'
+[flightctl]
+name=Flight Control RPM Repository (EPEL)
+type=rpm-md
+baseurl=https://rpm.flightctl.io/epel/$releasever/$basearch/
+gpgcheck=1
+gpgkey=https://download.copr.fedorainfracloud.org/results/@redhat-et/flightctl/pubkey.gpg
+enabled=1
+enabled_metadata=1
+metadata_expire=1d
+REPO
+
+## Package installation
+declare -a packages=() enable_repos=()
+
+# iwl7260-firmware carries the microcode for the Intel Wireless-AC 8265.
+packages+=( NetworkManager-wifi iwl7260-firmware bluez )
+
+# v4l-utils and a few EPEL dependencies need CodeReady Builder.
+packages+=( v4l-utils )
+enable_repos+=( "codeready-builder-for-rhel-$(rpm -E '%{rhel}')-$(arch)-rpms" )
+
+# No RTC on the Jetson: NTP is the only source of time.
+packages+=( chrony )
+
+# Fleet management and name resolution.
+packages+=( flightctl-agent-1.3.0~rc1 avahi nss-mdns )
+
+# Audio: the USB sound card is driven by ALSA (kernel 9.8 has it), shared through
+# the desktop session's PipeWire, which the demo container reaches over the pulse
+# socket.
+packages+=( alsa-utils pulseaudio-utils espeak-ng )
+
+# Web console.
+packages+=( cockpit cockpit-podman cockpit-files cockpit-ostree cockpit-pcp cockpit-system )
+
+# Demo and bench tooling (see documentation/WORK_IN_PROGRESS.md).
+packages+=( pciutils usbutils tcpdump htop stress-ng yq podman-compose tmux iptraf-ng mkpasswd
+            strace git python3-pip tio rsync ripgrep ffmpeg chromium )
+
+declare -a dnf_params=( -y )
+for repo in "${enable_repos[@]}"; do
+  dnf_params+=( "--enablerepo=$repo" )
+done
+dnf install "${dnf_params[@]}" "${packages[@]}"
+
+# Desktop: KDE on X11, auto-logged in as admin (configured in root/etc/sddm.conf.d).
+# Installed but disabled, see the default target below.
+dnf groupinstall "${dnf_params[@]}" "KDE Plasma Workspaces"
+
+# Remote desktop.
+dnf install "${dnf_params[@]}" https://github.com/rustdesk/rustdesk/releases/download/1.4.6/rustdesk-1.4.6-0.aarch64.rpm
+
+dnf clean all
+
+## Configuration
+systemctl enable flightctl-agent.service
+systemctl mask bootc-fetch-apply-updates.timer
+
+# Clock: hold flightctl-agent until chrony has stepped the clock -- see
+# root/usr/lib/systemd/system/flightctl-agent.service.d/10-raf-time-sync.conf.
+systemctl enable chronyd.service chrony-wait.service
+
+# mDNS: the node also answers to <hostname>.local.
+systemctl enable avahi-daemon.service
+grep -q 'mdns4_minimal' /etc/nsswitch.conf
+
+systemctl enable cockpit.socket sshd.service bluetooth.service
+
+# The base ships no firewalld; if a base bump brings one, keep the demo reachable.
+if rpm -q firewalld >/dev/null 2>&1; then
+  systemctl disable firewalld.service
+fi
+
+# Text mode. KDE and sddm stay installed but are NOT started: starting Xorg with
+# NVIDIA's Tegra X driver (nvidia-jetpack-for-rhel-9.8-x11) hard-resets the
+# Jetson (2026-10-14, see documentation/WORK_IN_PROGRESS.md). Set aside for the
+# demo; "systemctl isolate graphical.target" to investigate again.
+systemctl set-default multi-user.target
+systemctl disable sddm.service
+
+# The demo talks to the robot over the debug UART pins too: keep getty off it.
+systemctl mask serial-getty@ttyTCU0.service
+
+# Install jtop. Its installer only runs on a Tegra, so place the unit by hand,
+# and point its hardcoded /usr/local/jtop state directory at /var (see
+# root/usr/lib/tmpfiles.d/raf-jtop.conf).
+export PIP_NO_CACHE_DIR=1
+pip3 install jetson-stats
+install -m 0644 /usr/local/share/jetson_stats/jtop.service /usr/lib/systemd/system/jtop.service
+systemctl enable jtop.service
+ln -sfn /var/lib/jtop /usr/local/jtop
+
+# Disable suspend and hibernate targets
+systemctl mask suspend.target hibernate.target sleep.target hybrid-sleep.target
+
+# Set proper ownership and SELinux context on SSH authorized keys
+semanage fcontext -a -t ssh_home_t "/etc/ssh/authorized_keys(/.*)?"
+mkdir -p /etc/ssh/authorized_keys
+EOF
+
+ADD --chown=root:root root /
+
+RUN bootc container lint

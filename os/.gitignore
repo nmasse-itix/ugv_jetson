@@ -1,0 +1,5 @@
+flightctl-config.yaml
+*.iso
+kickstart.cfg
+wifi/
+rhel-9.8-aarch64-boot.iso

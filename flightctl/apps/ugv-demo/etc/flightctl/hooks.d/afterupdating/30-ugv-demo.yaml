@@ -1,0 +1,5 @@
+- if:
+  - path: /etc/containers/systemd/nvidia-jetpack.container
+    op: [created, updated]
+  run: /bin/sh -Eeuo pipefail -c 'systemctl daemon-reload ; systemctl restart --no-block nvidia-jetpack.service'
+  timeout: 5m

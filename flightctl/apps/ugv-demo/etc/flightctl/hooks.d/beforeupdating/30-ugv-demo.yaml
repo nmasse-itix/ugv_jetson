@@ -1,0 +1,5 @@
+- if:
+  - path: /etc/containers/systemd/nvidia-jetpack.container
+    op: [removed]
+  run: /bin/sh -c 'systemctl stop nvidia-jetpack.service || true'
+  timeout: 5m

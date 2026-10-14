@@ -1,0 +1,33 @@
+# The UGV Jetson robots: OS image and demo container.
+#
+#   flightctl apply -f flightctl/repositories.yaml
+#   flightctl apply -f flightctl/fleets.yaml
+#
+# A device joins with the label "demo=ugv-jetson". The os.image tag is the
+# rollout knob: bump it to a tag built by os/build.sh to update the robots.
+apiVersion: flightctl.io/v1beta1
+kind: Fleet
+metadata:
+  name: ugv-jetson
+spec:
+  selector:
+    matchLabels:
+      demo: ugv-jetson
+  template:
+    metadata:
+      labels:
+        fleet: ugv-jetson
+    spec:
+      os:
+        image: quay.io/robotic-agent-fleet-demo/ugv-jetson/os:__OS_TAG__
+      config:
+      - name: ugv-demo
+        configType: GitConfigProviderSpec
+        gitRef:
+          path: /flightctl/apps/ugv-demo/
+          repository: ugv-jetson
+          targetRevision: main
+      systemd:
+        matchPatterns:
+        - nvidia-jetpack.service
+        - jtop.service

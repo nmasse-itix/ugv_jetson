@@ -1,0 +1,7 @@
+apiVersion: flightctl.io/v1beta1
+kind: Repository
+metadata:
+  name: ugv-jetson
+spec:
+  url: https://github.com/nmasse-itix/ugv_jetson.git
+  type: git

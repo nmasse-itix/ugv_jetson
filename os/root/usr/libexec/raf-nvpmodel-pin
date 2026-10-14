@@ -1,0 +1,34 @@
+#!/usr/bin/bash
+#
+# Pin the Jetson to its highest power profile at boot.
+#
+# Why this exists: the stock super config carries `< PM_CONFIG DEFAULT=1 >`, so an
+# untouched node boots into the 25W profile, which caps the CPU at 1344 MHz — 22%
+# slower than MAXN_SUPER for the same 25 W budget. Measured in docs/Reference/TESTS.md §14.
+#
+# The mode ID is resolved by name from whichever config nvpmodel selected, rather
+# than hardcoded: nvpmodel picks /etc/nvpmodel.conf from the flashed board DTB, and
+# the ID differs between module SKUs. On a board flashed with a non-super BPMP DTB
+# there is no MAXN_SUPER profile at all — we leave the default alone and say so
+# loudly, because that is the silent 15 W trap this whole exercise was about.
+
+set -euo pipefail
+
+conf=/etc/nvpmodel.conf
+want=MAXN_SUPER
+
+if [ ! -e "$conf" ]; then
+    echo "raf-nvpmodel-pin: $conf missing, leaving the power profile alone" >&2
+    exit 0
+fi
+
+id=$(sed -n "s/^<[[:space:]]*POWER_MODEL[[:space:]]\+ID=\([0-9]\+\)[[:space:]]\+NAME=${want}[[:space:]]*>.*/\1/p" "$conf" | head -1)
+
+if [ -z "$id" ]; then
+    echo "raf-nvpmodel-pin: no ${want} profile in $(readlink -f "$conf")" >&2
+    echo "raf-nvpmodel-pin: this board is flashed with a non-super BPMP DTB — see os/README.md" >&2
+    exit 0
+fi
+
+echo "raf-nvpmodel-pin: applying ${want} (mode ${id})"
+exec /usr/sbin/nvpmodel -m "$id"

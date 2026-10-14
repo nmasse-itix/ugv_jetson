@@ -1,0 +1,86 @@
+# Runtime environment of the UGV demo: Ubuntu 22.04 + JetPack 6 userspace,
+# the demo's Python dependencies, and the computer vision tools.
+#
+# This replaces the "podman commit" of a hand-configured container
+# (documentation/WORK_IN_PROGRESS.md). The source code is NOT baked in: it is
+# bind-mounted from the host's git clone at /home/admin/ugv_jetson, so it can be
+# edited in place (by us, or by Hermes). The virtualenv lives at /opt/ugv-env,
+# outside that mount, and the entrypoint links it back as ugv-env/.
+#
+# Build context: the repository root.
+#   podman build -f app/Containerfile -t quay.io/robotic-agent-fleet-demo/ugv-jetson/app .
+FROM nvcr.io/nvidia/l4t-jetpack:r36.3.0
+
+ARG ADMIN_UID=1001
+ARG ADMIN_GID=1001
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1
+
+# System packages: the tools of the hand-made container, plus what setup.sh
+# installs (minus hostapd/dnsmasq/iptables: the access point mode is not used).
+RUN <<EOF
+#!/bin/bash
+# (shebang: Ubuntu's /bin/sh is dash, which has no pipefail)
+set -Eeuo pipefail
+apt-get update
+apt-get install -y --no-install-recommends \
+  vim sudo python3 python3-venv python3-pip python3-dev build-essential \
+  pulseaudio-utils alsa-utils strace curl espeak espeak-ng espeak-ng-data \
+  libopenblas-dev libatlas3-base libcamera-dev python3-opencv portaudio19-dev \
+  util-linux procps iproute2 iw v4l-utils ffmpeg git
+rm -rf /var/lib/apt/lists/*
+
+# jtop client. RHEL's Python 3.9 (the jtop.service on the host) authenticates
+# multiprocessing connections with SHA-256, Ubuntu's Python 3.10 with MD5:
+# align the client, or jtop in the container cannot talk to the host daemon.
+pip3 install jetson-stats
+sed -i "s/hmac.new(authkey, message, 'md5')/hmac.new(authkey, message, 'sha256')/g" /usr/lib/python3.10/multiprocessing/connection.py
+grep -q "hmac.new(authkey, message, 'sha256')" /usr/lib/python3.10/multiprocessing/connection.py
+
+# Jupyter, system-wide (setup.sh does the same).
+pip3 install jupyter jupyterlab
+
+# The user the demo runs as: same uid/gid as admin on the host, so files written
+# into the bind-mounted clone stay owned by admin.
+groupadd -g ${ADMIN_GID} admin
+useradd -m -d /home/admin -u ${ADMIN_UID} -g ${ADMIN_GID} -s /bin/bash admin
+usermod -aG sudo admin
+echo 'admin ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/admin
+chmod 0440 /etc/sudoers.d/admin
+echo "PS1='\u@jetpack-container:\w\\\$ '" >> /home/admin/.bashrc
+mkdir -p /home/admin/.config/pulse /home/admin/ugv_jetson
+chown -R admin:admin /home/admin
+EOF
+
+COPY requirements.txt /opt/ugv-requirements.txt
+
+# The demo's virtualenv (setup.sh's ugv-env), then the computer vision tools.
+RUN <<EOF
+#!/bin/bash
+set -Eeuo pipefail
+python3 -m venv --system-site-packages /opt/ugv-env
+/opt/ugv-env/bin/pip install --upgrade setuptools pip
+/opt/ugv-env/bin/pip install -r /opt/ugv-requirements.txt
+/opt/ugv-env/bin/pip install ultralytics
+# onnxruntime-gpu for JetPack 6 / Python 3.10, see https://elinux.org/Jetson_Zoo
+curl -sSfL -o /tmp/onnxruntime_gpu-1.19.0-cp310-cp310-linux_aarch64.whl https://nvidia.box.com/shared/static/6l0u97rj80ifwkk8rqbzj1try89fk26z.whl
+/opt/ugv-env/bin/pip install /tmp/onnxruntime_gpu-1.19.0-cp310-cp310-linux_aarch64.whl
+rm -f /tmp/onnxruntime_gpu-1.19.0-cp310-cp310-linux_aarch64.whl
+mkdir -p /opt/models
+cd /opt/models
+/opt/ugv-env/bin/yolo export model=yolov8n.pt format=onnx opset=17
+ls -l /opt/models/yolov8n.onnx
+# numpy is pinned by requirements.txt (mediapipe needs numpy 1.x). ultralytics,
+# and the export above (it pip-installs onnx on the fly), pull numpy 2: put the
+# pin back last, and check it held.
+/opt/ugv-env/bin/pip install numpy==1.26.4
+/opt/ugv-env/bin/python -c 'import numpy; assert numpy.__version__ == "1.26.4", numpy.__version__'
+chown -R admin:admin /opt/ugv-env /opt/models
+EOF
+
+COPY app/entrypoint.sh /usr/local/bin/ugv-entrypoint
+
+USER admin
+WORKDIR /home/admin/ugv_jetson
+ENTRYPOINT ["/usr/local/bin/ugv-entrypoint"]

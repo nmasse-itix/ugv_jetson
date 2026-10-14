@@ -19,8 +19,8 @@ set_default_sink(device_name)
 # base = BaseController('/dev/ttyTHS0', 115200)
 # JETSON ORIN NX
 # base = BaseController('/dev/ttyTHS1', 115200)
-# Demo
-base = BaseController('/dev/ttyUSB0', 115200)
+# Demo (overridden by UGV_BASE_PORT, set by the container's quadlet)
+base = BaseController(os.environ.get('UGV_BASE_PORT', '/dev/ttyUSB0'), 115200)
 
 threading.Thread(target=lambda: base.breath_light(20), daemon=True).start()
 

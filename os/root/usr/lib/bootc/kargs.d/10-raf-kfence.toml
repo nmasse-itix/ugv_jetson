@@ -1,0 +1,32 @@
+# /usr/lib/bootc/kargs.d/10-raf-kfence.toml
+#
+# WORKAROUND UPS-0002 — docs/Upstream/UPS-0002-serial-tegra-rx-dma-uaf.md
+#
+# Turn off KFENCE sampling on the fleet.
+#
+# KFENCE is RHEL's sampling use-after-free detector (default: one guarded
+# allocation every 100 ms). serial-tegra has a genuine use-after-free —
+# tegra_uart_terminate_rx_dma() frees the DMA descriptor through
+# tegra_dma_terminate_all(), then reads the transfer residue back out of it in
+# tegra_uart_rx_buffer_push(). Without KFENCE the freed object still holds the
+# right value and the read is harmless; with KFENCE it is poisoned, the byte
+# count comes back wrong, and the driver pushes a truncated frame.
+#
+# Measured on robot B, 2026-08-21, ESP32 on the 40-pin header at 115200:
+#
+#            sample_interval=100ms   sample_interval=0
+#   NUL             26-28                    0
+#   RX overruns     12-14                    0
+#   malformed    19-20 % of frames           0 %
+#   frame rate    11.5-12.4/s            15.2-15.5/s
+#
+# Toggled twice in each direction, and 0 % is exactly what the same board gives
+# over its USB adapter — so this closes the gap between the two transports.
+#
+# The cost: no KFENCE means no sampling detector for memory-safety bugs in any
+# other driver either. On a demo robot that has to hold a serial link, that is
+# the right trade; on a debugging session, override it.
+#
+# See docs/Reference/BENCH_FINDINGS.md item 3b. The driver bug itself is upstream's to fix, and
+# this line comes out the day a fixed kernel ships -- not before.
+kargs = ["kfence.sample_interval=0"]

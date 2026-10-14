@@ -1,0 +1,3 @@
+This system has been installed from a bootc image at quay.io/robotic-agent-fleet-demo/ugv-jetson/os.
+It is managed using flightctl.io Fleet Management: https://flightctl.itix.fr/
+

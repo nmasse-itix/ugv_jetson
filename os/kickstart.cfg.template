@@ -1,0 +1,165 @@
+##
+## Environment setup
+##
+
+# Install mode: text (interactive installs) or cmdline (unattended installs)
+text
+
+# French keyboard layout
+keyboard --vckeymap=fr --xlayouts='fr'
+
+# English i18n
+lang en_US.UTF-8 --addsupport fr_FR.UTF-8
+
+# Accept the EULA
+eula --agreed
+
+# Which action to perform after install: poweroff or reboot
+reboot
+
+# Timezone is GMT
+timezone Etc/GMT --utc
+
+##
+## network configuration
+##
+
+# Configure the first network device
+network --bootproto=dhcp --device=enP8p1s0 --noipv6 --activate
+
+# Set the hostname
+#network --hostname=localhost.localdomain
+
+##
+## partitioning
+##
+
+# Install on /dev/nvme0n1
+ignoredisk --only-use=nvme0n1
+
+# Install Grub in the MBR of /dev/nvme0n1
+bootloader --location=mbr --boot-drive=nvme0n1
+
+# Append kernel args to the boot command.
+# WORKAROUND UPS-0002 (kfence.sample_interval=0) -- the bootc karg in
+# root/usr/lib/bootc/kargs.d/10-raf-kfence.toml covers every later boot, this covers the first one.
+bootloader --append="cloud-init=disabled pd_ignore_unused console=ttyTCU0 console=tty0 kfence.sample_interval=0"
+
+# Clear the target disk
+zerombr
+
+# Remove existing partitions
+clearpart --all --initlabel
+
+# Automatically create partitions required by hardware platform
+reqpart --add-boot
+
+# Create a root and a /var partition
+part / --fstype xfs --size=1 --grow --asprimary --label=root
+#part /var --fstype xfs --size=1 --grow --asprimary --label=var
+
+##
+## Pre-installation scripts
+##
+
+%pre --interpreter=/bin/bash --logfile=/tmp/anaconda-pre.log --erroronfail
+set -Eeuo pipefail
+
+# Online installs:
+# - setup wifi
+# - restart NetworkManager
+# - inject registry credentials
+# - set registry as insecure (optional)
+
+# Offline installs:
+# <none>
+
+%end
+
+## 
+## Installation
+##
+
+# online install:
+#ostreecontainer --url="${__TARGET_IMAGE__}" --transport=registry --no-signature-verification
+# offline install:
+ostreecontainer --url=/run/install/repo/container --transport=oci --no-signature-verification
+
+##
+## Users & groups
+##
+
+rootpw --lock
+# uid 1000 is taken by the flightctl user the agent RPM creates. Pin admin to
+# 1001 so the quadlets can address /run/user/1001 (the desktop's pulse socket).
+user --name=admin --uid=1001 --gid=1001 --groups=wheel --plaintext --password=redhat
+
+##
+## Post-installation scripts
+##
+
+%post --interpreter=/bin/bash --logfile=/var/log/anaconda-post.log --erroronfail
+set -Eeuo pipefail
+bootc switch --mutate-in-place --transport registry ${__TARGET_IMAGE__}
+
+base32 -d > /etc/ostree/auth.json <<"EOB32"
+${__ETC_OSTREE_AUTH_JSON_B32__}
+EOB32
+chmod 600 /etc/ostree/auth.json
+
+base32 -d > /etc/flightctl/config.yaml <<"EOB32"
+${__ETC_FLIGHTCTL_CONFIG_YAML_B32__}
+EOB32
+chmod 600 /etc/flightctl/config.yaml
+
+# Wi-Fi profiles, from os/wifi/*.nmconnection on the build host.
+#
+# The robots are wireless in the arena, so a node that installs itself but needs
+# a cable to be reachable is only half provisioned. The credentials cannot live
+# in git (configs/ holds placeholders only), and they cannot live in the OS image
+# either -- that image is shared by every node and rolled out by bootc, and a PSK
+# in a layer is a PSK in the registry forever, replayable from any pulled copy.
+# So they follow the same path as the two secrets above: a build-time blob
+# injected into the install, ending at 0600 on the node's writable /etc.
+#
+# A tarball rather than a single file because a robot roams -- lab, office,
+# venue -- and NetworkManager picks between profiles by autoconnect-priority.
+# Adding a venue is dropping one more keyfile in os/wifi/ and rebuilding.
+mkdir -p /etc/NetworkManager/system-connections
+base32 -d <<"EOB32" | tar xzf - -C /etc/NetworkManager/system-connections
+${__ETC_NM_SYSTEM_CONNECTIONS_TGZ_B32__}
+EOB32
+chmod 600 /etc/NetworkManager/system-connections/*.nmconnection
+restorecon -F -R /etc/NetworkManager/system-connections || :
+
+# admin needs the camera, the GPU, the serial ports, the sound card and jtop.
+# In image mode those groups live in /usr/lib/group (nss-altfiles), where
+# usermod cannot edit them: copy each one into /etc/group first.
+for g in video render dialout audio; do
+  grep -q "^$g:" /etc/group || grep "^$g:" /usr/lib/group >> /etc/group
+done
+usermod -aG video,render,dialout,audio admin
+getent group jtop >/dev/null || groupadd -r -g 950 jtop
+usermod -aG jtop admin
+
+# A text-mode install makes Anaconda point /etc/systemd/system/default.target
+# at multi-user.target, shadowing the image's graphical.target: no desktop.
+# Drop the override so the image decides.
+rm -f /etc/systemd/system/default.target
+
+# Linger: admin's user manager starts at boot, not at login. It carries the
+# PipeWire pulse socket the demo container plays sound through, and Hermes'
+# user services.
+mkdir -p /var/lib/systemd/linger
+touch /var/lib/systemd/linger/admin
+
+# The demo source code lives in admin's home, bind-mounted into the container.
+# Best effort: the install itself is offline, and a missing clone is one
+# "git clone" away -- it must not fail the whole install.
+if git clone https://github.com/nmasse-itix/ugv_jetson.git /var/home/admin/ugv_jetson; then
+  chown -R admin:admin /var/home/admin/ugv_jetson
+else
+  echo "WARNING: could not clone the demo source code, clone it by hand." >&2
+fi
+
+%end

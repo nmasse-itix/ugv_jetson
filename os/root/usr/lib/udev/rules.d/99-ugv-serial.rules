@@ -1,0 +1,8 @@
+# Stable name for the Waveshare "General Driver for Robots" (ESP32), so app.py
+# never depends on which kernel node the board lands on (UGV_BASE_PORT).
+#
+# This robot (robot-b of the RAF fleet) has it on the 40-pin header UART,
+# 3100000.serial -> ttyTHS1. That port only works on a board flashed with the
+# UART overlay of robotic-agent-fleet/os/dtb, plus the kfence karg of the image.
+# A robot wired through a USB adapter would match on idVendor/idProduct instead.
+SUBSYSTEM=="tty", KERNEL=="ttyTHS1", SYMLINK+="ugv-base"
