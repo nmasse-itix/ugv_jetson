@@ -327,6 +327,23 @@ systemctl --user daemon-reload
 systemctl --user enable --now hermes-dashboard.service
 ```
 
+### Vision avec Gemini via OpenRouter
+
+Avec `google/gemini-*` via OpenRouter, la première image analysée par `vision_analyze` (par exemple « trouve la balle verte ») fait échouer le tour :
+
+```
+Error code: 400 ... "Requests ending with a model turn are not supported."
+```
+
+En mode `auto`, Hermes injecte l'image **dans le résultat de l'outil** (« native fast path »), et OpenRouter ne sait pas la transmettre à Gemini dans une réponse de fonction. Il faut que l'image soit décrite par le modèle de vision auxiliaire, qui ne renvoie que du texte. Dans `~/.hermes/config.yaml` :
+
+```yaml
+agent:
+  image_input_mode: text
+```
+
+puis `systemctl --user restart hermes-gateway`.
+
 ## Prompt Hermes pour l'initialiser
 
 Bonjour,
