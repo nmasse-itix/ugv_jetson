@@ -489,7 +489,7 @@ Tu peux capturer le flux MJPEG de ta caméra à l'adresse `http://localhost:5000
 Ou, plus utile peut-être, juste une frame :
 
 ```sh
-FRAME="/tmp/frame_$(date +%s%N).jpg" ffmpeg -i http://127.0.0.1:5000/video_feed -frames:v 1 -f image2 -y "$FRAME"
+FRAME=/tmp/frame_$(date +%s%N)_%03d.jpg ffmpeg -i http://127.0.0.1:5000/video_feed -frames:v 1 -f image2 $FRAME
 ```
 
 Puis, une fois qu'il répond :
