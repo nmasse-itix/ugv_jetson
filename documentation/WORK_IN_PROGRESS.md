@@ -1,5 +1,28 @@
 # Démo Robotique UGV Jetson
 
+## Retour sur RHEL 9.4 (2026-10-15)
+
+Suite à un problème avec la version RHEL 9.8, robot-b a été réinstallé en RHEL 9.4, à la main, comme dans la section « Configuration de RHEL » plus bas. Ce qui diffère de cette procédure d'origine :
+
+- **Wi-Fi :** le robot est sur `robot-ctf` (`robot-b.local`). Avec le point d'accès `ITIX-AP`, le kernel 427.42.1 part en *kernel panic*. Le profil a été supprimé.
+- **Port série :** l'ESP32 est sur `ttyTHS1` (UART du connecteur 40 broches). Comme dans l'image bootc, il faut `kfence.sample_interval=0` (`grubby --update-kernel=ALL --args=...`), `serial-getty@ttyTCU0` masqué, et le lien udev `/etc/udev/rules.d/99-ugv-serial.rules` (`/dev/ugv-base`). Trames vérifiées propres depuis l'hôte.
+- **Firmware UEFI en 36.5.2** (JetPack 6.2.2, laissé par l'install 9.8), alors que les paquets 9.4 sont en JetPack 6.1 (36.4).
+- **Pas de son :** le kernel 9.4 aarch64 n'a pas ALSA (`/proc/asound` absent). La synthèse vocale ne marche pas.
+- **Pas de MAXN_SUPER :** `nvpmodel_p3767_0003.conf` de JetPack 6.1 ne connaît que 15W (0) et 7W (1). `nvpmodel -m 0` demande un reboot pour s'appliquer, et tant que le mode n'est pas posé, `jtop.service` plante (`'NoneType' object is not subscriptable`).
+- **jtop :** `pip3 install jetson-stats` ne pose plus l'unité. `groupadd -g 950 jtop`, puis `install -m 0644 /usr/local/share/jetson_stats/jtop.service /etc/systemd/system/`.
+- **CDI :** `nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`.
+- **Conteneur :** plus de `podman commit`. On reprend l'image publiée sur quay, avec une couche qui renumérote `admin` en uid 1000 (`rhel94/Containerfile`, construite sur le Jetson), et un quadlet adapté (`rhel94/nvidia-jetpack.container`, à copier dans `/etc/containers/systemd/`) :
+
+```sh
+cd ~/ugv_jetson
+sudo podman build --isolation=chroot -t localhost/ugv-jetson/app-rhel94 rhel94/   # crun : eBPF device filter
+sudo cp rhel94/nvidia-jetpack.container /etc/containers/systemd/
+sudo systemctl daemon-reload
+sudo systemctl start nvidia-jetpack
+```
+
+- **Hermes :** le code est dans `/home/admin` (pas `/var/home/admin`). Les réglages du profil `vllm-qwen` (voir plus bas) sont reportés directement dans le **profil par défaut**, avec `hermes config set`, qui garde les commentaires de `config.yaml`. Différence : le provider `itix-litellm` lit sa clé par `key_env: HERMES_CUSTOM_LITELLM_ITIX_FR_API_KEY`, dans `~/.hermes/.env`, et non par `key_cmd`. Sauvegarde d'avant : `~/.hermes/backups/config.yaml.before-qwen-backport`. Mesuré : environ 20 s pour une question simple, environ 30 s pour un `vision_analyze`.
+
 ## RHEL 9.8 en mode image (bootc), géré par Flight Control
 
 C'est la procédure actuelle. Les sections « RHEL 9.4 » plus bas sont l'ancienne installation à la main, gardées pour mémoire : tout ce qu'elles faisaient est désormais dans une image OS, une image applicative et un quadlet.
@@ -489,7 +512,8 @@ Tu peux capturer le flux MJPEG de ta caméra à l'adresse `http://localhost:5000
 Ou, plus utile peut-être, juste une frame :
 
 ```sh
-FRAME=/tmp/frame_$(date +%s%N)_%03d.jpg ffmpeg -i http://127.0.0.1:5000/video_feed -frames:v 1 -f image2 $FRAME
+FRAME=/tmp/frame_$(date +%s%N).jpg
+ffmpeg -nostdin -loglevel error -i http://127.0.0.1:5000/video_feed -frames:v 1 -update 1 -y "$FRAME"
 ```
 
 Puis, une fois qu'il répond :
